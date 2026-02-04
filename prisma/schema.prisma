@@ -1,11 +1,10 @@
-
 generator client {
   provider = "prisma-client-js"
-  output   = "../generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 enum WorkspaceType {
@@ -33,43 +32,101 @@ enum CardStatus {
   Done
 }
 
-model Users {
-  id            String          @id @default(uuid()) @db.Uuid
-  name          String
-  email         String          @unique
-  password_hash String
-  profile_pic   String
-  created_at    DateTime        @default(now())
-  deleted_at    DateTime?
+enum WorkspacePlan {
+  FREE
+  PRO
+  BUSINESS
+}
 
-  owned_workspaces Workspaces[] @relation("WorkspaceOwner")
-  memberships      Memberships[]
-  assigned_cards   Cards[]       @relation("UserAssignedCards")
-  activity_logs    ActivityLogs[]
+enum VerificationStatus {
+  PENDING
+  DOMAIN_VERIFIED
+  APPROVED
+  REJECTED
+}
+
+enum TeamRole {
+  Lead
+  Member
+  Viewer
+}
+
+enum ProjectRole {
+  ProjectAdmin
+  Contributor
+  Viewer
+}
+
+enum AuditTargetType {
+  Workspace
+  Team
+  Project
+  Board
+  List
+  Card
+  Membership
+  TeamMembership
+  ProjectMembership
+  Verification
+}
+
+model Users {
+  id              String   @id @default(uuid()) @db.Uuid
+  name            String
+  email           String   @unique
+  password_hash   String
+  profile_pic     String
+  is_system_admin Boolean  @default(false)
+  created_at      DateTime @default(now())
+  deleted_at      DateTime?
+
+  owned_workspaces    Workspaces[]       @relation("WorkspaceOwner")
+  memberships         Memberships[]
+  assigned_cards      Cards[]            @relation("UserAssignedCards")
+  team_memberships    TeamMemberships[]
+  project_memberships ProjectMemberships[]
+  activity_logs       ActivityLogs[]
 }
 
 model Workspaces {
-  id          String        @id @default(uuid()) @db.Uuid
-  name        String
-  type        WorkspaceType
-  owner_id    String        @db.Uuid
-  verified    Boolean
-  created_at  DateTime      @default(now())
-  deleted_at  DateTime?
+  id                  String             @id @default(uuid()) @db.Uuid
+  name                String
+  type                WorkspaceType
+  owner_id            String             @db.Uuid
+  verified            Boolean            @default(false)
+  plan                WorkspacePlan      @default(FREE)
+  member_limit        Int                @default(15)
+  current_members     Int                @default(1)
+  verification_status VerificationStatus @default(PENDING)
+  verified_at         DateTime?
+  verification_notes  String?
+  org_domain          String?
+  legal_name          String?
+  registration_id     String?
+  website             String?
+  created_at          DateTime           @default(now())
+  deleted_at          DateTime?
 
-  owner       Users         @relation("WorkspaceOwner", fields: [owner_id], references: [id], onDelete: Cascade)
-  memberships Memberships[]
-  projects    Projects[]
-  boards      Boards[]
-  cards       Cards[]
+  owner          Users          @relation("WorkspaceOwner", fields: [owner_id], references: [id], onDelete: Cascade)
+  memberships    Memberships[]
+  teams          Teams[]
+  projects       Projects[]
+  boards         Boards[]
+  cards          Cards[]
+  activity_logs  ActivityLogs[]
+
+  @@index([owner_id])
+  @@index([type])
+  @@index([plan])
+  @@index([org_domain])
 }
 
 model Memberships {
-  id           String      @id @default(uuid()) @db.Uuid
-  user_id      String      @db.Uuid
-  workspace_id String      @db.Uuid
+  id           String         @id @default(uuid()) @db.Uuid
+  user_id      String         @db.Uuid
+  workspace_id String         @db.Uuid
   role         MembershipRole
-  joined_at    DateTime    @default(now())
+  joined_at    DateTime       @default(now())
   left_at      DateTime?
 
   user      Users      @relation(fields: [user_id], references: [id], onDelete: Cascade)
@@ -80,9 +137,40 @@ model Memberships {
   @@index([user_id])
 }
 
+model Teams {
+  id           String            @id @default(uuid()) @db.Uuid
+  workspace_id String            @db.Uuid
+  name         String
+  created_at   DateTime          @default(now())
+  deleted_at   DateTime?
+
+  workspace   Workspaces       @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  memberships TeamMemberships[]
+  projects    Projects[]
+
+  @@index([workspace_id])
+}
+
+model TeamMemberships {
+  id        String   @id @default(uuid()) @db.Uuid
+  team_id   String   @db.Uuid
+  user_id   String   @db.Uuid
+  role      TeamRole
+  joined_at DateTime @default(now())
+  left_at   DateTime?
+
+  team Teams @relation(fields: [team_id], references: [id], onDelete: Cascade)
+  user Users @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([team_id, user_id])
+  @@index([team_id])
+  @@index([user_id])
+}
+
 model Projects {
   id           String      @id @default(uuid()) @db.Uuid
   workspace_id String      @db.Uuid
+  team_id      String?     @db.Uuid
   name         String
   description  String?     @db.Text
   status       ProjectStatus
@@ -91,10 +179,29 @@ model Projects {
   created_at   DateTime    @default(now())
   deleted_at   DateTime?
 
-  workspace Workspaces @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
-  boards    Boards[]
+  workspace           Workspaces         @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  team                Teams?             @relation(fields: [team_id], references: [id], onDelete: SetNull)
+  boards              Boards[]
+  project_memberships ProjectMemberships[]
 
   @@index([workspace_id])
+  @@index([team_id])
+}
+
+model ProjectMemberships {
+  id         String      @id @default(uuid()) @db.Uuid
+  project_id String      @db.Uuid
+  user_id    String      @db.Uuid
+  role       ProjectRole
+  joined_at  DateTime    @default(now())
+  left_at    DateTime?
+
+  project Projects @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  user    Users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([project_id, user_id])
+  @@index([project_id])
+  @@index([user_id])
 }
 
 model Boards {
@@ -103,6 +210,7 @@ model Boards {
   workspace_id String    @db.Uuid
   name         String
   created_at   DateTime  @default(now())
+  deleted_at   DateTime?
 
   project   Projects   @relation(fields: [project_id], references: [id], onDelete: Cascade)
   workspace Workspaces @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
@@ -128,22 +236,21 @@ model Lists {
 }
 
 model Cards {
-  id           String        @id @default(uuid()) @db.Uuid
-  list_id      String        @db.Uuid
-  board_id     String        @db.Uuid
-  workspace_id String        @db.Uuid
+  id           String   @id @default(uuid()) @db.Uuid
+  list_id      String   @db.Uuid
+  board_id     String   @db.Uuid
+  workspace_id String   @db.Uuid
   title        String
-  description  String        @db.Text
+  description  String   @db.Text
   status       CardStatus
-  assigned_to  String?       @db.Uuid
-  created_at   DateTime      @default(now())
+  assigned_to  String?  @db.Uuid
+  created_at   DateTime @default(now())
   deleted_at   DateTime?
 
-  list          Lists      @relation(fields: [list_id], references: [id], onDelete: Cascade)
-  board         Boards     @relation(fields: [board_id], references: [id], onDelete: Cascade)
-  workspace     Workspaces @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
-  assignee      Users?     @relation("UserAssignedCards", fields: [assigned_to], references: [id], onDelete: SetNull)
-  activity_logs ActivityLogs[]
+  list      Lists      @relation(fields: [list_id], references: [id], onDelete: Cascade)
+  board     Boards     @relation(fields: [board_id], references: [id], onDelete: Cascade)
+  workspace Workspaces @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  assignee  Users?     @relation("UserAssignedCards", fields: [assigned_to], references: [id], onDelete: SetNull)
 
   @@index([list_id])
   @@index([board_id])
@@ -152,15 +259,20 @@ model Cards {
 }
 
 model ActivityLogs {
-  id         String   @id @default(uuid()) @db.Uuid
-  user_id    String   @db.Uuid
-  card_id    String   @db.Uuid
-  action     String
-  created_at DateTime @default(now())
+  id          String          @id @default(uuid()) @db.Uuid
+  actor_id    String          @db.Uuid
+  workspace_id String         @db.Uuid
+  target_type AuditTargetType
+  target_id   String          @db.Uuid
+  action      String
+  metadata    Json?
+  created_at  DateTime        @default(now())
 
-  user Users @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  card Cards @relation(fields: [card_id], references: [id], onDelete: Cascade)
+  actor     Users      @relation(fields: [actor_id], references: [id], onDelete: Cascade)
+  workspace Workspaces @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
 
-  @@index([user_id])
-  @@index([card_id])
+  @@index([actor_id])
+  @@index([workspace_id])
+  @@index([target_type])
+  @@index([target_id])
 }
