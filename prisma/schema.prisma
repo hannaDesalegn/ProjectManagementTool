@@ -7,202 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Users {
-  id                  String               @id @default(uuid()) @db.Uuid
-  name                String
-  email               String               @unique
-  password_hash       String
-  profile_pic         String
-  created_at          DateTime             @default(now())
-  deleted_at          DateTime?
-  is_system_admin     Boolean              @default(false)
-  activity_logs       ActivityLogs[]
-  assigned_cards      Cards[]              @relation("UserAssignedCards")
-  memberships         Memberships[]
-  project_memberships ProjectMemberships[]
-  team_memberships    TeamMemberships[]
-  owned_workspaces    Workspaces[]         @relation("WorkspaceOwner")
-}
-
-model Workspaces {
-  id                  String             @id @default(uuid()) @db.Uuid
-  name                String
-  type                WorkspaceType
-  owner_id            String             @db.Uuid
-  verified            Boolean            @default(false)
-  created_at          DateTime           @default(now())
-  deleted_at          DateTime?
-  current_members     Int                @default(1)
-  legal_name          String?
-  member_limit        Int                @default(15)
-  org_domain          String?
-  plan                WorkspacePlan      @default(FREE)
-  registration_id     String?
-  verification_notes  String?
-  verification_status VerificationStatus @default(PENDING)
-  verified_at         DateTime?
-  website             String?
-  activity_logs       ActivityLogs[]
-  boards              Boards[]
-  cards               Cards[]
-  memberships         Memberships[]
-  projects            Projects[]
-  teams               Teams[]
-  owner               Users              @relation("WorkspaceOwner", fields: [owner_id], references: [id], onDelete: Cascade)
-
-  @@index([owner_id])
-  @@index([type])
-  @@index([plan])
-  @@index([org_domain])
-}
-
-model Memberships {
-  id           String         @id @default(uuid()) @db.Uuid
-  user_id      String         @db.Uuid
-  workspace_id String         @db.Uuid
-  role         MembershipRole
-  joined_at    DateTime       @default(now())
-  left_at      DateTime?
-  user         Users          @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  workspace    Workspaces     @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
-
-  @@unique([user_id, workspace_id])
-  @@index([workspace_id])
-  @@index([user_id])
-}
-
-model Teams {
-  id           String            @id @default(uuid()) @db.Uuid
-  workspace_id String            @db.Uuid
-  name         String
-  created_at   DateTime          @default(now())
-  deleted_at   DateTime?
-  projects     Projects[]
-  memberships  TeamMemberships[]
-  workspace    Workspaces        @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
-
-  @@index([workspace_id])
-}
-
-model TeamMemberships {
-  id        String    @id @default(uuid()) @db.Uuid
-  team_id   String    @db.Uuid
-  user_id   String    @db.Uuid
-  role      TeamRole
-  joined_at DateTime  @default(now())
-  left_at   DateTime?
-  team      Teams     @relation(fields: [team_id], references: [id], onDelete: Cascade)
-  user      Users     @relation(fields: [user_id], references: [id], onDelete: Cascade)
-
-  @@unique([team_id, user_id])
-  @@index([team_id])
-  @@index([user_id])
-}
-
-model Projects {
-  id                  String               @id @default(uuid()) @db.Uuid
-  workspace_id        String               @db.Uuid
-  name                String
-  description         String?
-  status              ProjectStatus
-  start_date          DateTime             @db.Date
-  end_date            DateTime             @db.Date
-  created_at          DateTime             @default(now())
-  deleted_at          DateTime?
-  team_id             String?              @db.Uuid
-  boards              Boards[]
-  project_memberships ProjectMemberships[]
-  team                Teams?               @relation(fields: [team_id], references: [id])
-  workspace           Workspaces           @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
-
-  @@index([workspace_id])
-  @@index([team_id])
-}
-
-model ProjectMemberships {
-  id         String      @id @default(uuid()) @db.Uuid
-  project_id String      @db.Uuid
-  user_id    String      @db.Uuid
-  role       ProjectRole
-  joined_at  DateTime    @default(now())
-  left_at    DateTime?
-  project    Projects    @relation(fields: [project_id], references: [id], onDelete: Cascade)
-  user       Users       @relation(fields: [user_id], references: [id], onDelete: Cascade)
-
-  @@unique([project_id, user_id])
-  @@index([project_id])
-  @@index([user_id])
-}
-
-model Boards {
-  id           String     @id @default(uuid()) @db.Uuid
-  project_id   String     @db.Uuid
-  workspace_id String     @db.Uuid
-  name         String
-  created_at   DateTime   @default(now())
-  deleted_at   DateTime?
-  project      Projects   @relation(fields: [project_id], references: [id], onDelete: Cascade)
-  workspace    Workspaces @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
-  cards        Cards[]
-  lists        Lists[]
-
-  @@index([project_id])
-  @@index([workspace_id])
-}
-
-model Lists {
-  id         String    @id @default(uuid()) @db.Uuid
-  board_id   String    @db.Uuid
-  name       String
-  position   Float
-  created_at DateTime  @default(now())
-  deleted_at DateTime?
-  cards      Cards[]
-  board      Boards    @relation(fields: [board_id], references: [id], onDelete: Cascade)
-
-  @@index([board_id])
-}
-
-model Cards {
-  id           String     @id @default(uuid()) @db.Uuid
-  list_id      String     @db.Uuid
-  board_id     String     @db.Uuid
-  workspace_id String     @db.Uuid
-  title        String
-  description  String
-  status       CardStatus
-  assigned_to  String?    @db.Uuid
-  created_at   DateTime   @default(now())
-  deleted_at   DateTime?
-  assignee     Users?     @relation("UserAssignedCards", fields: [assigned_to], references: [id])
-  board        Boards     @relation(fields: [board_id], references: [id], onDelete: Cascade)
-  list         Lists      @relation(fields: [list_id], references: [id], onDelete: Cascade)
-  workspace    Workspaces @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
-
-  @@index([list_id])
-  @@index([board_id])
-  @@index([workspace_id])
-  @@index([assigned_to])
-}
-
-model ActivityLogs {
-  id           String          @id @default(uuid()) @db.Uuid
-  action       String
-  created_at   DateTime        @default(now())
-  actor_id     String          @db.Uuid
-  metadata     Json?
-  target_id    String          @db.Uuid
-  target_type  AuditTargetType
-  workspace_id String          @db.Uuid
-  actor        Users           @relation(fields: [actor_id], references: [id], onDelete: Cascade)
-  workspace    Workspaces      @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
-
-  @@index([actor_id])
-  @@index([workspace_id])
-  @@index([target_type])
-  @@index([target_id])
-}
-
 enum WorkspaceType {
   PERSONAL
   TEAM
@@ -264,4 +68,212 @@ enum AuditTargetType {
   TeamMembership
   ProjectMembership
   Verification
+}
+
+model User {
+  id              String   @id @default(uuid()) @db.Uuid
+  name            String
+  email           String   @unique
+  password_hash   String
+  profile_pic     String
+  is_system_admin Boolean  @default(false)
+  created_at      DateTime @default(now())
+  deleted_at      DateTime?
+
+  owned_workspace    Workspace[]       @relation("WorkspaceOwner")
+  membership          Membership[]
+  assigned_card       Card[]            @relation("UserAssignedCard")
+  team_membership     TeamMembership[]
+  project_membership  ProjectMembership[]
+  activity_log        ActivityLog[]
+  
+}
+
+model Workspace {
+  id                  String             @id @default(uuid()) @db.Uuid
+  name                String
+  type                WorkspaceType
+  owner_id            String             @db.Uuid
+  verified            Boolean            @default(false)
+  plan                WorkspacePlan      @default(FREE)
+  member_limit        Int                @default(15)
+  current_member      Int                @default(1)
+  verification_status VerificationStatus @default(PENDING)
+  verified_at         DateTime?
+  verification_note   String?
+  org_domain          String?
+  legal_name          String?
+  registration_id     String?
+  website             String?
+  created_at          DateTime           @default(now())
+  deleted_at          DateTime?
+
+  owner          User          @relation("WorkspaceOwner", fields: [owner_id], references: [id], onDelete: Cascade)
+  membership    Membership[]
+  team          Team[]
+  project       Project[]
+  board         Board[]
+  card          Card[]
+  activity_log  ActivityLog[]
+
+  @@index([owner_id])
+  @@index([type])
+  @@index([plan])
+  @@index([org_domain])
+}
+
+model Membership {
+  id           String         @id @default(uuid()) @db.Uuid
+  user_id      String         @db.Uuid
+  workspace_id String         @db.Uuid
+  role         MembershipRole
+  joined_at    DateTime       @default(now())
+  left_at      DateTime?
+
+  user      User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, workspace_id])
+  @@index([workspace_id])
+  @@index([user_id])
+}
+
+model Team {
+  id           String            @id @default(uuid()) @db.Uuid
+  workspace_id String            @db.Uuid
+  name         String
+  created_at   DateTime          @default(now())
+  deleted_at   DateTime?
+
+  workspace   Workspace       @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  membership TeamMembership[]
+  project    Project[]
+
+  @@index([workspace_id])
+}
+
+model TeamMembership {
+  id        String   @id @default(uuid()) @db.Uuid
+  team_id   String   @db.Uuid
+  user_id   String   @db.Uuid
+  role      TeamRole
+  joined_at DateTime @default(now())
+  left_at   DateTime?
+
+  team Team @relation(fields: [team_id], references: [id], onDelete: Cascade)
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([team_id, user_id])
+  @@index([team_id])
+  @@index([user_id])
+}
+
+model Project {
+  id           String      @id @default(uuid()) @db.Uuid
+  workspace_id String      @db.Uuid
+  team_id      String?     @db.Uuid
+  name         String
+  description  String?     @db.Text
+  status       ProjectStatus
+  start_date   DateTime    @db.Date
+  end_date     DateTime    @db.Date
+  created_at   DateTime    @default(now())
+  deleted_at   DateTime?
+
+  workspace           Workspace         @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  team                Team?             @relation(fields: [team_id], references: [id], onDelete: SetNull)
+  board              Board[]
+  project_membership ProjectMembership[]
+
+  @@index([workspace_id])
+  @@index([team_id])
+}
+
+model ProjectMembership {
+  id         String      @id @default(uuid()) @db.Uuid
+  project_id String      @db.Uuid
+  user_id    String      @db.Uuid
+  role       ProjectRole
+  joined_at  DateTime    @default(now())
+  left_at    DateTime?
+
+  project Project @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([project_id, user_id])
+  @@index([project_id])
+  @@index([user_id])
+}
+
+model Board {
+  id           String    @id @default(uuid()) @db.Uuid
+  project_id   String    @db.Uuid
+  workspace_id String    @db.Uuid
+  name         String
+  created_at   DateTime  @default(now())
+  deleted_at   DateTime?
+
+  project   Project   @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  list     List[]
+  card     Card[]
+
+  @@index([project_id])
+  @@index([workspace_id])
+}
+
+model List {
+  id         String   @id @default(uuid()) @db.Uuid
+  board_id   String   @db.Uuid
+  name       String
+  position   Float
+  created_at DateTime @default(now())
+  deleted_at DateTime?
+
+  board Board @relation(fields: [board_id], references: [id], onDelete: Cascade)
+  card Card[]
+
+  @@index([board_id])
+}
+
+model Card {
+  id           String   @id @default(uuid()) @db.Uuid
+  list_id      String   @db.Uuid
+  board_id     String   @db.Uuid
+  workspace_id String   @db.Uuid
+  title        String
+  description  String   @db.Text
+  status       CardStatus
+  assigned_to  String?  @db.Uuid
+  created_at   DateTime @default(now())
+  deleted_at   DateTime?
+
+  list      List      @relation(fields: [list_id], references: [id], onDelete: Cascade)
+  board     Board     @relation(fields: [board_id], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  assignee  User?     @relation("UserAssignedCard", fields: [assigned_to], references: [id], onDelete: SetNull)
+
+  @@index([list_id])
+  @@index([board_id])
+  @@index([workspace_id])
+  @@index([assigned_to])
+}
+
+model ActivityLog {
+  id          String          @id @default(uuid()) @db.Uuid
+  actor_id    String          @db.Uuid
+  workspace_id String         @db.Uuid
+  target_type AuditTargetType
+  target_id   String          @db.Uuid
+  action      String
+  metadata    Json?
+  created_at  DateTime        @default(now())
+
+  actor     User      @relation(fields: [actor_id], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+
+  @@index([actor_id])
+  @@index([workspace_id])
+  @@index([target_type])
+  @@index([target_id])
 }
