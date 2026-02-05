@@ -1,6 +1,6 @@
-const { verifyToken } = require("../config/jwt");
+import { verifyToken } from "../config/jwt.js";
 
-exports.protect = (req, res, next) => {
+export const protect = (req, res, next) => {
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {

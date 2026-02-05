@@ -1,10 +1,10 @@
-const prisma = require("../config/prisma");
-const { hashPassword, comparePassword } = require("../utils/hash");
-const { generateToken } = require("../config/jwt");
+import prisma from "../config/prisma.js";
+import { hashPassword, comparePassword } from "../utils/hash.js";
+import { generateToken } from "../config/jwt.js";
 
-exports.register = async({ email, password }) => {
-    if (!email || !password) {
-        throw new Error("Email and password required");
+export const register = async ({ email, password, name }) => {
+    if (!email || !password || !name) {
+        throw new Error("Email, password, and name are required");
     }
 
     const exists = await prisma.users.findUnique({
@@ -20,24 +20,28 @@ exports.register = async({ email, password }) => {
     const user = await prisma.users.create({
         data: {
             email,
-            password: hashed,
+            password_hash: hashed,
+            name,
+            profile_pic: 'default.png', // Default profile picture
         },
     });
 
-    return { id: user.id, email: user.email };
+    return { id: user.id, email: user.email, name: user.name };
 };
 
-exports.login = async({ email, password }) => {
+export const login = async ({ email, password }) => {
     const user = await prisma.users.findUnique({
         where: { email },
     });
 
     if (!user) throw new Error("Invalid credentials");
 
-    const match = await comparePassword(password, user.password);
+    const match = await comparePassword(password, user.password_hash);
     if (!match) throw new Error("Invalid credentials");
 
     const token = generateToken({ id: user.id, email: user.email });
 
-    return { token };
+    return { token, user: { id: user.id, email: user.email, name: user.name } };
 };
+
+export default { register, login };
