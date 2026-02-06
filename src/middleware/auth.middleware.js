@@ -1,19 +1,21 @@
-const { verifyToken } = require("../config/jwt");
+// middleware/auth.middleware.js
+import { verifyToken } from "../utils/jwt.js";
 
-exports.protect = (req, res, next) => {
-    const authHeader = req.headers.authorization;
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        return res.status(401).json({ error: "Unauthorized" });
-    }
+export const protect = (req, res, next) => {
+  const authHeader = req.headers.authorization;
 
-    const token = authHeader.split(" ")[1];
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ success: false, error: "Unauthorized" });
+  }
 
-    try {
-        const decoded = verifyToken(token);
-        req.user = decoded;
-        next();
-    } catch (err) {
-        return res.status(401).json({ error: err.message });
-    }
+  const token = authHeader.split(" ")[1];
+
+  try {
+    const decoded = verifyToken(token);
+    req.user = decoded;
+    next();
+  } catch (err) {
+    return res.status(401).json({ success: false, error: err.message });
+  }
 };
