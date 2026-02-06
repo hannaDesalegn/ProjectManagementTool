@@ -1,28 +1,36 @@
-require("dotenv").config();
-const express = require("express");
+import express from "express";
+import {
+  register,
+  login,
+  requestVerification,
+  verifyEmail,
+  requestPasswordReset,
+  resetPassword
+} from "./controllers/auth.controller.js"; 
 
-const authController = require("./controllers/auth.controller");
-const { protect } = require("./middleware/auth.middleware");
+import { protect } from "./middleware/auth.middleware.js";
+import errorHandler from "./middleware/error.middleware.js";
+import authRoutes from "./routes/auth.routes.js";
 
 const app = express();
-
 app.use(express.json());
 
 // health check
 app.get("/", (req, res) => {
-    res.send("TaskFlow API is running 🚀");
+  res.send("HayTask is running");
 });
 
 // auth routes
-app.post("/api/auth/register", authController.register);
-app.post("/api/auth/login", authController.login);
+app.use("/api/auth", authRoutes);
 
-// protected test route
+// protected route
 app.get("/api/protected", protect, (req, res) => {
-    res.json({
-        message: "You accessed a protected route",
-        user: req.user,
-    });
+  res.json({
+    message: "You accessed a protected route",
+    user: req.user,
+  });
 });
 
-module.exports = app;
+app.use(errorHandler);
+
+export default app;
