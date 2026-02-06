@@ -75,7 +75,7 @@ model User {
   name                  String
   email                 String   @unique
   password_hash         String
-  profile_pic           String
+  profile_pic           String?
   is_system_admin       Boolean  @default(false)
   isVerified            Boolean  @default(false)
   verificationToken     String?
