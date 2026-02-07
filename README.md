@@ -1,4 +1,4 @@
-# TaskFlow - Project Management Tool
+# HayTask
 
 A complete project management backend API built with Node.js, Express, Prisma, and PostgreSQL (Neon). Features include user authentication, workspaces, projects, Kanban boards, and task management.
 
