@@ -1,4 +1,4 @@
-// src/controllers/auth.controller.jsimport { validationResult } from "express-validator";
+
 import * as authService from "../services/auth.service.js";
 
 // REGISTER
@@ -77,7 +77,6 @@ export const resetPassword = async (req, res, next) => {
     await authService.resetPassword(req.body.token, req.body.password);
     res.status(200).json({ success: true, message: "Password has been reset" });
   } catch (err) {
-
-    next(err);
+    next(err);z
   }
 };
