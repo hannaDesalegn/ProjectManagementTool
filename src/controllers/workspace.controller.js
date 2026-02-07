@@ -23,7 +23,7 @@ export const getUserWorkspaces = async (req, res) => {
 
 export const getWorkspace = async (req, res) => {
     try {
-        const workspace = await workspaceService.getWorkspaceById(req.params.id, req.user.id);
+        const workspace = await workspaceService.getWorkspaceById(req.params.workspaceId, req.user.id);
         res.status(200).json({ workspace });
     } catch (err) {
         res.status(400).json({ error: err.message });
@@ -33,7 +33,7 @@ export const getWorkspace = async (req, res) => {
 export const inviteUser = async (req, res) => {
     try {
         const membership = await workspaceService.inviteUserToWorkspace({
-            workspaceId: req.params.id,
+            workspaceId: req.params.workspaceId,
             ...req.body,
             inviterId: req.user.id
         });

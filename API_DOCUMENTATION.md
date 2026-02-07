@@ -1,359 +1,194 @@
-# TaskFlow API Documentation
+# TaskFlow API - Command Line Guide
 
 Base URL: `http://localhost:3000`
 
-## Authentication
+## 🚀 Complete Step-by-Step Commands
 
-### Register User
-```
-POST /api/auth/register
-Content-Type: application/json
-
-{
-  "name": "John Doe",
-  "email": "john@example.com",
-  "password": "password123"
-}
-
-Response: 201
-{
-  "message": "User registered successfully",
-  "user": {
-    "id": "uuid",
-    "email": "john@example.com",
-    "name": "John Doe"
-  }
-}
+### Step 1: Register a New User
+```bash
+curl -X POST http://localhost:3000/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"name": "John Doe", "email": "john@example.com", "password": "password123"}'
 ```
 
-### Login
+### Step 2: Login to Get Token
+```bash
+curl -X POST http://localhost:3000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "john@example.com", "password": "password123"}'
 ```
-POST /api/auth/login
-Content-Type: application/json
+**📝 Copy the token from the response and use it in all commands below!**
 
-{
-  "email": "john@example.com",
-  "password": "password123"
-}
+### Step 3: Create a Workspace
+```bash
+curl -X POST http://localhost:3000/api/workspaces \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE" \
+  -d '{"name": "My Personal Workspace", "type": "PERSONAL"}'
+```
+**📝 Copy the workspace `id` from the response!**
 
-Response: 200
-{
-  "token": "jwt-token-here",
-  "user": {
-    "id": "uuid",
-    "email": "john@example.com",
-    "name": "John Doe"
-  }
-}
+### Step 4: Get Your Workspaces
+```bash
+curl -X GET http://localhost:3000/api/workspaces \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE"
 ```
 
-**Note:** Use the token in all subsequent requests:
+### Step 5: Create a Project> 
+
+### Step 6: Get Workspace Projects
+```bash
+curl -X GET http://localhost:3000/api/projects/workspace/YOUR_WORKSPACE_ID_HERE \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE"
 ```
-Authorization: Bearer <your-jwt-token>
+
+### Step 7: Create a Board (Kanban)
+```bash
+curl -X POST http://localhost:3000/api/boards \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE" \
+  -d '{
+    "name": "Sprint 1 Board",
+    "project_id": "YOUR_PROJECT_ID_HERE",
+    "workspace_id": "YOUR_WORKSPACE_ID_HERE"
+  }'
+```
+**📝 Copy the board `id` from the response!**
+
+### Step 8: View Your Board (with lists)
+```bash
+curl -X GET http://localhost:3000/api/boards/YOUR_BOARD_ID_HERE \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE"
+```
+**📝 Copy a list `id` from the response (To Do, In Progress, or Done)!**
+
+### Step 9: Create a Task Card
+```bash
+curl -X POST http://localhost:3000/api/boards/cards \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE" \
+  -d '{
+    "title": "Design Homepage",
+    "description": "Create mockup for the homepage design",
+    "list_id": "YOUR_LIST_ID_HERE"
+  }'
+```
+
+### Step 10: Create Another Card
+```bash
+curl -X POST http://localhost:3000/api/boards/cards \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE" \
+  -d '{
+    "title": "Setup Database",
+    "description": "Configure PostgreSQL database",
+    "list_id": "YOUR_LIST_ID_HERE"
+  }'
+```
+
+### Step 11: Move a Card to Different List
+```bash
+curl -X PATCH http://localhost:3000/api/boards/cards/YOUR_CARD_ID_HERE/move \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE" \
+  -d '{"new_list_id": "YOUR_NEW_LIST_ID_HERE"}'
+```
+
+### Step 12: View Updated Board
+```bash
+curl -X GET http://localhost:3000/api/boards/YOUR_BOARD_ID_HERE \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE"
 ```
 
 ---
 
-## Workspaces
+## 🔧 Additional Commands
 
-### Create Workspace
-```
-POST /api/workspaces
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "name": "My Company",
-  "type": "ORGANIZATION",
-  "legal_name": "My Company Inc",
-  "org_domain": "mycompany.com",
-  "website": "https://mycompany.com"
-}
-
-Types: PERSONAL, TEAM, ORGANIZATION
-
-Response: 201
-{
-  "message": "Workspace created successfully",
-  "workspace": { ... }
-}
-```
-
-### Get User's Workspaces
-```
-GET /api/workspaces
-Authorization: Bearer <token>
-
-Response: 200
-{
-  "workspaces": [ ... ]
-}
-```
-
-### Get Workspace Details
-```
-GET /api/workspaces/:id
-Authorization: Bearer <token>
-
-Response: 200
-{
-  "workspace": {
-    "id": "uuid",
+### Create Organization Workspace
+```bash
+curl -X POST http://localhost:3000/api/workspaces \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE" \
+  -d '{
     "name": "My Company",
-    "memberships": [ ... ],
-    "projects": [ ... ],
-    "teams": [ ... ]
-  }
-}
+    "type": "ORGANIZATION",
+    "legal_name": "My Company Inc",
+    "org_domain": "mycompany.com",
+    "website": "https://mycompany.com"
+  }'
 ```
 
 ### Invite User to Workspace
-```
-POST /api/workspaces/:id/invite
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "email": "user@example.com",
-  "role": "Member"
-}
-
-Roles: Owner, Admin, Member, Viewer
-
-Response: 201
-{
-  "message": "User invited successfully",
-  "membership": { ... }
-}
+```bash
+curl -X POST http://localhost:3000/api/workspaces/YOUR_WORKSPACE_ID_HERE/invite \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE" \
+  -d '{"email": "teammate@example.com", "role": "Member"}'
 ```
 
----
-
-## Projects
-
-### Create Project
-```
-POST /api/projects
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "name": "Website Redesign",
-  "description": "Redesign company website",
-  "workspace_id": "workspace-uuid",
-  "start_date": "2024-01-01",
-  "end_date": "2024-06-30",
-  "team_id": "team-uuid" (optional)
-}
-
-Response: 201
-{
-  "message": "Project created successfully",
-  "project": { ... }
-}
+### Add Member to Project
+```bash
+curl -X POST http://localhost:3000/api/projects/YOUR_PROJECT_ID_HERE/members \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE" \
+  -d '{"user_id": "USER_ID_HERE", "role": "Contributor"}'
 ```
 
-### Get Workspace Projects
-```
-GET /api/projects/workspace/:workspaceId
-Authorization: Bearer <token>
-
-Response: 200
-{
-  "projects": [ ... ]
-}
+### Create Custom List
+```bash
+curl -X POST http://localhost:3000/api/boards/lists \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE" \
+  -d '{"name": "Review", "board_id": "YOUR_BOARD_ID_HERE"}'
 ```
 
-### Get Project Details
-```
-GET /api/projects/:id
-Authorization: Bearer <token>
-
-Response: 200
-{
-  "project": {
-    "id": "uuid",
-    "name": "Website Redesign",
-    "boards": [ ... ],
-    "project_memberships": [ ... ]
-  }
-}
-```
-
-### Add Project Member
-```
-POST /api/projects/:id/members
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "user_id": "user-uuid",
-  "role": "Contributor"
-}
-
-Roles: ProjectAdmin, Contributor, Viewer
-
-Response: 201
-{
-  "message": "Member added successfully",
-  "membership": { ... }
-}
+### Test Protected Route
+```bash
+curl -X GET http://localhost:3000/api/protected \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE"
 ```
 
 ---
 
-## Boards (Kanban)
+## 📋 Quick Copy-Paste Workflow
 
-### Create Board
-```
-POST /api/boards
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "name": "Sprint 1",
-  "project_id": "project-uuid",
-  "workspace_id": "workspace-uuid"
-}
-
-Note: Automatically creates 3 default lists: "To Do", "In Progress", "Done"
-
-Response: 201
-{
-  "message": "Board created successfully",
-  "board": { ... }
-}
+**1. Register:**
+```bash
+curl -X POST http://localhost:3000/api/auth/register -H "Content-Type: application/json" -d '{"name": "John Doe", "email": "john@example.com", "password": "password123"}'
 ```
 
-### Get Board with Lists and Cards
-```
-GET /api/boards/:id
-Authorization: Bearer <token>
-
-Response: 200
-{
-  "board": {
-    "id": "uuid",
-    "name": "Sprint 1",
-    "lists": [
-      {
-        "id": "list-uuid",
-        "name": "To Do",
-        "position": 1,
-        "cards": [
-          {
-            "id": "card-uuid",
-            "title": "Design homepage",
-            "description": "Create mockups",
-            "status": "ToDo",
-            "assignee": { ... }
-          }
-        ]
-      }
-    ]
-  }
-}
+**2. Login:**
+```bash
+curl -X POST http://localhost:3000/api/auth/login -H "Content-Type: application/json" -d '{"email": "john@example.com", "password": "password123"}'
 ```
 
-### Create List
-```
-POST /api/boards/lists
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "name": "Review",
-  "board_id": "board-uuid"
-}
-
-Response: 201
-{
-  "message": "List created successfully",
-  "list": { ... }
-}
+**3. Create Workspace:**
+```bash
+curl -X POST http://localhost:3000/api/workspaces -H "Content-Type: application/json" -H "Authorization: Bearer YOUR_TOKEN" -d '{"name": "My Workspace", "type": "PERSONAL"}'
 ```
 
-### Create Card
-```
-POST /api/boards/cards
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "title": "Design homepage",
-  "description": "Create mockups for the new homepage",
-  "list_id": "list-uuid",
-  "assigned_to": "user-uuid" (optional)
-}
-
-Response: 201
-{
-  "message": "Card created successfully",
-  "card": { ... }
-}
+**4. Create Project:**
+```bash
+curl -X POST http://localhost:3000/api/projects -H "Content-Type: application/json" -H "Authorization: Bearer YOUR_TOKEN" -d '{"name": "My Project", "description": "Test project", "workspace_id": "WORKSPACE_ID", "start_date": "2026-02-06", "end_date": "2026-12-31"}'
 ```
 
-### Move Card to Different List
-```
-PATCH /api/boards/cards/:cardId/move
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "new_list_id": "list-uuid"
-}
-
-Note: Card status automatically updates based on list name
-
-Response: 200
-{
-  "message": "Card moved successfully",
-  "card": { ... }
-}
+**5. Create Board:**
+```bash
+curl -X POST http://localhost:3000/api/boards -H "Content-Type: application/json" -H "Authorization: Bearer YOUR_TOKEN" -d '{"name": "My Board", "project_id": "PROJECT_ID", "workspace_id": "WORKSPACE_ID"}'
 ```
 
 ---
 
-## Complete Workflow Example
+## ⚠️ Important Notes
 
-1. **Register & Login**
-   - Register a user
-   - Login to get JWT token
+- **Token expires in 10 minutes** - login again if you get "Invalid or expired token"
+- **Replace placeholders:** `YOUR_TOKEN_HERE`, `YOUR_WORKSPACE_ID_HERE`, etc.
+- **Copy IDs:** Always copy the `id` values from responses to use in subsequent commands
+- **JSON format:** Make sure your JSON is properly formatted with quotes around strings
 
-2. **Create Workspace**
-   - Create a workspace (you become the owner)
+## 🐛 Common Errors
 
-3. **Invite Team Members**
-   - Invite other users to your workspace
-
-4. **Create Project**
-   - Create a project in your workspace
-   - Add members to the project
-
-5. **Create Board**
-   - Create a Kanban board for the project
-   - Default lists are created automatically
-
-6. **Manage Tasks**
-   - Create cards in lists
-   - Assign cards to team members
-   - Move cards between lists as work progresses
-
----
-
-## Error Responses
-
-All endpoints return errors in this format:
-```json
-{
-  "error": "Error message here"
-}
-```
-
-Common HTTP status codes:
-- 200: Success
-- 201: Created
-- 400: Bad Request
-- 401: Unauthorized
-- 404: Not Found
-- 500: Server Error
+- `"Invalid or expired token"` → Login again to get a new token
+- `"Access denied to this workspace"` → Use the correct workspace ID that belongs to your user
+- `"The table does not exist"` → Run `npx prisma db push` to create database tables
+- `"Failed to connect to localhost"` → Make sure your server is running with `npx nodemon src/server.js`
