@@ -1,4 +1,3 @@
-// services/auth.service.js
 import prisma from "../config/prisma.js";
 import { hashPassword, comparePassword } from "../utils/hash.js";
 import { generateToken } from "../utils/jwt.js";
@@ -20,7 +19,7 @@ export const register = async ({ email, password, name }) => {
   const hashed = await hashPassword(password);
 
   const user = await prisma.user.create({
-    data: { email, password: hashed, name },
+    data: { email, password_hash: hashed, name },
   });
 
   return { id: user.id, email: user.email, name: user.name };
@@ -34,7 +33,7 @@ export const login = async ({ email, password }) => {
     throw new Error("Invalid credentials");
   }
 
-  const match = await comparePassword(password, user.password);
+  const match = await comparePassword(password, user.password_hash);
   if (!match) {
     log(`Failed login attempt: wrong password for email (${email})`);
     throw new Error("Invalid credentials");
@@ -112,7 +111,7 @@ export const resetPassword = async (token, newPassword) => {
   await prisma.user.update({
     where: { id: user.id },
     data: {
-      password: hashed,
+      password_hash: hashed,
       passwordResetToken: null,
       passwordResetExpires: null,
     },

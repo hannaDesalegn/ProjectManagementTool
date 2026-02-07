@@ -1,5 +1,4 @@
-// src/controllers/auth.controller.js
-import { validationResult } from "express-validator";
+// src/controllers/auth.controller.jsimport { validationResult } from "express-validator";
 import * as authService from "../services/auth.service.js";
 
 // REGISTER
@@ -48,9 +47,9 @@ export const requestVerification = async (req, res, next) => {
 export const verifyEmail = async (req, res, next) => {
   try {
     await authService.verifyEmail(req.query.token);
-    res.status(200).json({ success: true, message: "Email verified" });
+    res.status(200).send('<p>Email Verified Successfully!</p>');
   } catch (err) {
-    next(err);
+    res.status(400).send('<p>Verification Failed: Invalid or expired</p>');
   }
 };
 
@@ -78,6 +77,7 @@ export const resetPassword = async (req, res, next) => {
     await authService.resetPassword(req.body.token, req.body.password);
     res.status(200).json({ success: true, message: "Password has been reset" });
   } catch (err) {
+
     next(err);
   }
 };

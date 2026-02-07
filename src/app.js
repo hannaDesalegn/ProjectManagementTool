@@ -1,4 +1,5 @@
 import express from "express";
+import cors from "cors";
 import {
   register,
   login,
@@ -6,13 +7,14 @@ import {
   verifyEmail,
   requestPasswordReset,
   resetPassword
-} from "./controllers/auth.controller.js"; 
+} from "./controllers/auth.controller.js";
 
 import { protect } from "./middleware/auth.middleware.js";
 import errorHandler from "./middleware/error.middleware.js";
 import authRoutes from "./routes/auth.routes.js";
 
 const app = express();
+
 app.use(express.json());
 
 // health check
