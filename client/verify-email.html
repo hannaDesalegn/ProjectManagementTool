@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Email - HayTask</title>
+    <link rel="stylesheet" href="styles/main.css">
+</head>
+
+<body>
+    <div class="container">
+        <div class="auth-container">
+            <div class="auth-header">
+                <h1>HayTask</h1>
+                <p>Email Verification</p>
+            </div>
+
+            <div class="auth-form active" style="display: block; text-align: center; padding: 40px;">
+                <div id="verificationStatus">
+                    <div class="loading">
+                        <p>Verifying your email...</p>
+                        <p style="font-size: 2rem; margin-top: 20px;">⏳</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="notification" class="notification"></div>
+
+    <script src="js/verify-email.js"></script>
+</body>
+
+</html>

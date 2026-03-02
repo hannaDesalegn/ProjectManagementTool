@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home - HayTask</title>
+    <link rel="stylesheet" href="styles/home.css">
+</head>
+
+<body>
+    <div class="home-container">
+        <header class="home-header">
+            <div class="header-content">
+                <h1>🎯 HayTask</h1>
+                <div class="user-info">
+                    <span id="userName">Welcome!</span>
+                    <button id="logoutBtn" class="logout-btn">Logout</button>
+                </div>
+            </div>
+        </header>
+
+        <main class="home-main">
+            <div class="welcome-hero">
+                <h2>Welcome to HayTask! 🚀</h2>
+                <p>Your account is verified and ready to go.</p>
+                <button id="goToDashboard" class="dashboard-btn">Go to Dashboard</button>
+            </div>
+
+            <div class="feature-cards">
+                <div class="feature-card">
+                    <div class="icon">📋</div>
+                    <h3>Projects</h3>
+                    <p>Manage your projects efficiently</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">👥</div>
+                    <h3>Teams</h3>
+                    <p>Collaborate with your team</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">✅</div>
+                    <h3>Tasks</h3>
+                    <p>Track your progress</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="notification" class="notification"></div>
+
+    <script src="js/home.js"></script>
+</body>
+
+</html>

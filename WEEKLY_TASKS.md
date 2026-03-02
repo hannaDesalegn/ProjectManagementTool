@@ -1,4 +1,4 @@
-# TaskFlow - Weekly Tasks
+# # TaskFlow - Weekly Tasks
 
 ## 📅 Week 1 (Feb 2-8, 2026) - COMPLETED ✅
 
@@ -18,21 +18,21 @@
 
 ---
 
-## 📅 Week 2 (Feb 9-15, 2026) - UPCOMING
+## 📅 Week 2 (Feb 9-15, 2026) - This week
 
-### Yordanos (Authentication)
+### Yordanos (Authentication + Frontend)
 - [ ] Real-time authentication for WebSocket
-- [ ] Advanced permission system
-- [ ] File upload security
-- [ ] API rate limiting enhancement
-- [ ] Security testing
+- [x] Advanced permission system
+- [x] **Frontend development start** - Login/Register
+- [x] **Frontend authentication integration**
+- [x] API rate limiting enhancement
 
-### Hanna (Database)
+### Hanna (Database + Frontend)
 - [ ] Real-time database triggers
 - [ ] Activity logging system
-- [ ] File storage integration
+- [ ] **Frontend development** - Dashboard UI
+- [ ] **Frontend-backend integration**
 - [ ] Search functionality
-- [ ] Performance monitoring
 
 ---
 

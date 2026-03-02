@@ -1,6 +1,7 @@
 import express from "express";
 import { protect } from "../middleware/auth.middleware.js";
 import { validateProject, sanitizeInput } from "../middleware/validation.middleware.js";
+import * as projectService from "../services/project.service.js";
 
 const router = express.Router();
 
@@ -8,84 +9,75 @@ const router = express.Router();
 router.use(protect);
 router.use(sanitizeInput);
 
-// Project management routes
-router.post("/", validateProject, async (req, res) => {
+// Get all user projects (from all workspaces)
+router.get("/", async(req, res) => {
     try {
-        const { name, description, workspace_id, start_date, end_date } = req.body;
-        
-        // Placeholder for project creation
+        const projects = await projectService.getUserProjects(req.user.id);
+        res.status(200).json({ projects });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+// Create project
+router.post("/", validateProject, async(req, res) => {
+    try {
+        console.log('Project creation request:', req.body);
+        console.log('User:', req.user);
+
+        const project = await projectService.createProject(req.user.id, req.body);
+
         res.status(201).json({
             message: "Project created successfully",
-            project: {
-                id: "temp-project-id",
-                name,
-                description,
-                workspace_id,
-                start_date,
-                end_date,
-                status: "Active",
-                created_at: new Date().toISOString()
-            }
+            project
         });
     } catch (err) {
-        res.status(400).json({ error: err.message });
+        console.error('Project creation error:', err);
+        res.status(400).json({ error: err.message, details: err.stack });
     }
 });
 
-router.get("/workspace/:workspaceId", async (req, res) => {
+// Get workspace projects
+router.get("/workspace/:workspaceId", async(req, res) => {
     try {
-        // Placeholder for getting workspace projects
-        res.status(200).json({
-            projects: [
-                {
-                    id: "temp-project-id",
-                    name: "Sample Project",
-                    description: "A sample project",
-                    workspace_id: req.params.workspaceId,
-                    status: "Active",
-                    created_at: new Date().toISOString()
-                }
-            ]
-        });
+        const projects = await projectService.getWorkspaceProjects(req.params.workspaceId, req.user.id);
+        res.status(200).json({ projects });
     } catch (err) {
-        res.status(400).json({ error: err.message });
+        res.status(403).json({ error: err.message });
     }
 });
 
-router.get("/:projectId", async (req, res) => {
+// Get project by ID
+router.get("/:projectId", async(req, res) => {
     try {
-        // Placeholder for getting project details
-        res.status(200).json({
-            project: {
-                id: req.params.projectId,
-                name: "Sample Project",
-                description: "A sample project",
-                status: "Active",
-                boards: [],
-                members: []
-            }
-        });
+        const project = await projectService.getProjectById(req.params.projectId, req.user.id);
+        res.status(200).json({ project });
     } catch (err) {
-        res.status(400).json({ error: err.message });
+        res.status(403).json({ error: err.message });
     }
 });
 
-router.post("/:projectId/members", async (req, res) => {
+// Add project member
+router.post("/:projectId/members", async(req, res) => {
     try {
-        const { user_id, role } = req.body;
-        
-        if (!user_id || !role) {
-            return res.status(400).json({ error: "User ID and role are required" });
+        const { user_id, email, role } = req.body;
+
+        if (!role) {
+            return res.status(400).json({ error: "Role is required" });
         }
 
-        // Placeholder for adding project member
+        if (!user_id && !email) {
+            return res.status(400).json({ error: "User ID or email is required" });
+        }
+
+        const membership = await projectService.addProjectMember(
+            req.params.projectId,
+            req.user.id, { user_id, email, role }
+        );
+
         res.status(201).json({
             message: "Member added successfully",
-            membership: {
-                user_id,
-                project_id: req.params.projectId,
-                role
-            }
+            membership
         });
     } catch (err) {
         res.status(400).json({ error: err.message });

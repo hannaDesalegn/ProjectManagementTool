@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Board - TaskFlow</title>
+    <link rel="stylesheet" href="/styles/main.css">
+    <link rel="stylesheet" href="/styles/board.css">
+</head>
+
+<body>
+    <div class="board-container">
+        <!-- Header -->
+        <header class="board-header">
+            <div class="header-left">
+                <button class="back-btn" onclick="goToDashboard()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M19 12H5M12 19l-7-7 7-7" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                    Back
+                </button>
+                <h1 class="board-title" id="boardTitle">Loading...</h1>
+            </div>
+            <div class="header-right">
+                <button class="btn-secondary" onclick="showAddListModal()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M12 5v14M5 12h14" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                    Add List
+                </button>
+                <button class="theme-toggle" onclick="toggleTheme()">
+                    <svg class="sun-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <circle cx="12" cy="12" r="5" stroke-width="2"/>
+                        <path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                    <svg class="moon-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Board Content -->
+        <div class="board-content" id="boardContent">
+            <div class="lists-container" id="listsContainer">
+                <!-- Lists will be dynamically added here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Add List Modal -->
+    <div class="modal" id="addListModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add New List</h2>
+                <button class="close-btn" onclick="closeModal('addListModal')">&times;</button>
+            </div>
+            <form id="addListForm" onsubmit="handleAddList(event)">
+                <div class="form-group">
+                    <label for="listName">List Name</label>
+                    <input type="text" id="listName" required placeholder="e.g., Backlog, In Review">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" onclick="closeModal('addListModal')">Cancel</button>
+                    <button type="submit" class="btn-primary">Add List</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Card Modal -->
+    <div class="modal" id="addCardModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add New Card</h2>
+                <button class="close-btn" onclick="closeModal('addCardModal')">&times;</button>
+            </div>
+            <form id="addCardForm" onsubmit="handleAddCard(event)">
+                <input type="hidden" id="cardListId">
+                <div class="form-group">
+                    <label for="cardTitle">Title *</label>
+                    <input type="text" id="cardTitle" required placeholder="Enter card title">
+                </div>
+                <div class="form-group">
+                    <label for="cardDescription">Description</label>
+                    <textarea id="cardDescription" rows="3" placeholder="Add a description..."></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="cardPriority">Priority</label>
+                        <select id="cardPriority">
+                            <option value="LOW">Low</option>
+                            <option value="MEDIUM" selected>Medium</option>
+                            <option value="HIGH">High</option>
+                            <option value="URGENT">Urgent</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="cardDueDate">Due Date</label>
+                        <input type="date" id="cardDueDate">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" onclick="closeModal('addCardModal')">Cancel</button>
+                    <button type="submit" class="btn-primary">Add Card</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Card Details Modal -->
+    <div class="modal" id="cardDetailsModal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2 id="cardDetailsTitle">Card Details</h2>
+                <button class="close-btn" onclick="closeModal('cardDetailsModal')">&times;</button>
+            </div>
+            <div class="card-details-body" id="cardDetailsBody">
+                <!-- Card details will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/board.js"></script>
+</body>
+
+</html>
