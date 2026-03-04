@@ -1,637 +1,937 @@
-// Get board ID from URL
-const urlParams = new URLSearchParams(window.location.search);
-const boardId = urlParams.get('id');
-
+// Enhanced Board functionality with full API integration
+const API_BASE = '/api';
 let currentBoard = null;
-let draggedCard = null;
+let currentLists = [];
+let currentCards = [];
+let listIdMap = {}; // Map list names to IDs
 
-// Initialize
-document.addEventListener('DOMContentLoaded', () => {
-    if (!boardId) {
-        showNotification('No board ID provided', 'error');
-        setTimeout(() => window.location.href = '/dashboard.html', 2000);
-        return;
+// Check auth
+function checkAuth() {
+    const token = localStorage.getItem('token');
+    if (!token) {
+        window.location.href = '/index.html';
+        return false;
     }
+    return true;
+}
 
-    loadBoard();
-    initTheme();
-});
+// Fetch with auth wrapper
+async function fetchWithAuth(url, options = {}) {
+    const token = localStorage.getItem('token');
+    options.headers = options.headers || {};
+    if (token) options.headers['Authorization'] = `Bearer ${token}`;
+    
+    const res = await fetch(url, options);
+    if (res.status === 401) {
+        showNotification('Session expired. Please log in again.', 'error');
+        setTimeout(() => { window.location.href = '/index.html'; }, 1500);
+        throw new Error('Unauthorized');
+    }
+    return res;
+}
+
+// Get board ID from URL
+function getBoardId() {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('id');
+}
 
 // Load board data
 async function loadBoard() {
+    if (!checkAuth()) return;
+    
+    const boardId = getBoardId();
+    if (!boardId) {
+        showNotification('Board ID not found', 'error');
+        return;
+    }
+
     try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-            window.location.href = '/index.html';
-            return;
-        }
-
-        const response = await fetch(`/api/boards/${boardId}`, {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
-
-        if (!response.ok) {
+        showLoading(true);
+        
+        // Load board details
+        const boardRes = await fetchWithAuth(`${API_BASE}/boards/${boardId}`);
+        if (!boardRes.ok) {
             throw new Error('Failed to load board');
         }
-
-        currentBoard = await response.json();
-        renderBoard();
+        
+        const boardData = await boardRes.json();
+        currentBoard = boardData.data || boardData;
+        console.log('📋 Board loaded:', currentBoard);
+        console.log('🎨 Board color:', currentBoard.background_color);
+        console.log('📦 Full board object:', JSON.stringify(currentBoard, null, 2));
+        
+        document.getElementById('boardTitle').textContent = currentBoard.name;
+        
+        // Display list count
+        updateListCount();
+        
+        // Apply board background color if exists
+        if (currentBoard.background_color) {
+            console.log('✅ Applying color:', currentBoard.background_color);
+            applyBoardColor(currentBoard.background_color);
+        } else {
+            console.log('⚠️ No background_color found in board data');
+            console.log('⚠️ Available fields:', Object.keys(currentBoard));
+            // Apply default color anyway
+            applyBoardColor('#8b5cf6');
+        }
+        
+        // Load lists for this board
+        await loadLists();
+        
     } catch (error) {
         console.error('Error loading board:', error);
         showNotification('Failed to load board', 'error');
+    } finally {
+        showLoading(false);
     }
 }
 
-// Render board
-function renderBoard() {
-    if (!currentBoard) return;
+// Apply board color
+function applyBoardColor(color) {
+    console.log('🎨 Applying board color:', color);
+    
+    // Apply gradient background to body
+    document.body.style.background = `linear-gradient(135deg, ${color}20 0%, ${color}05 50%, #0a0a0f 100%)`;
+    
+    // Update header background
+    const header = document.querySelector('header');
+    if (header) {
+        header.style.background = `linear-gradient(90deg, ${color}15 0%, rgba(26, 26, 46, 0.6) 100%)`;
+        header.style.backdropFilter = 'blur(20px)';
+    }
+    
+    // Update floating shapes with the selected color
+    const shapes = document.querySelectorAll('.floating-shape');
+    if (shapes.length > 0) {
+        shapes[0].style.background = color;
+        shapes[1].style.background = color;
+        shapes[2].style.background = color;
+    }
+    
+    // Add accent color to lists
+    const lists = document.querySelectorAll('.glass-effect');
+    lists.forEach(list => {
+        list.style.borderColor = `${color}30`;
+    });
+    
+    console.log('✅ Color applied successfully!');
+}
 
-    document.getElementById('boardTitle').textContent = currentBoard.name;
+// Load lists and cards
+async function loadLists() {
+    const boardId = getBoardId();
+    
+    try {
+        // Load lists from the board data
+        if (currentBoard && currentBoard.lists) {
+            currentLists = currentBoard.lists;
+            
+            // Create a map of list names to IDs for easy lookup
+            currentBoard.lists.forEach(list => {
+                const listName = list.name.toLowerCase().replace(/\s+/g, '');
+                listIdMap[listName] = list.id;
+            });
+            
+            console.log('📝 List ID Map:', listIdMap);
+        }
+        
+        // Render the lists UI
+        renderListsUI();
+        
+        // Load cards for each list
+        await loadCards();
+        
+    } catch (error) {
+        console.error('Error loading lists:', error);
+        showNotification('Failed to load lists', 'error');
+    }
+}
 
-    const listsContainer = document.getElementById('listsContainer');
-    listsContainer.innerHTML = '';
+// Ensure default lists exist (To Do, In Progress, Done)
+async function ensureDefaultLists() {
+    const boardId = getBoardId();
+    const defaultLists = [
+        { name: 'To Do', position: 1 },
+        { name: 'In Progress', position: 2 },
+        { name: 'Done', position: 3 }
+    ];
+    
+    // Create lists if they don't exist
+    for (const listData of defaultLists) {
+        try {
+            await fetchWithAuth(`${API_BASE}/boards/lists`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: listData.name,
+                    board_id: boardId,
+                    position: listData.position
+                })
+            });
+        } catch (error) {
+            // List might already exist, that's okay
+            console.log(`List "${listData.name}" might already exist`);
+        }
+    }
+    
+    // Render the lists UI
+    renderListsUI();
+}
 
-    if (!currentBoard.lists || currentBoard.lists.length === 0) {
-        listsContainer.innerHTML = `
-            <div class="empty-state">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <rect x="3" y="3" width="18" height="18" rx="2" stroke-width="2"/>
-                    <path d="M9 3v18M15 3v18" stroke-width="2"/>
-                </svg>
-                <h3>No lists yet</h3>
-                <p>Create your first list to start organizing tasks</p>
+// Update list count display
+function updateListCount() {
+    const listCountElement = document.getElementById('listCount');
+    if (listCountElement && currentBoard && currentBoard.lists) {
+        const activeListCount = currentBoard.lists.filter(list => !list.deleted_at).length;
+        listCountElement.textContent = `${activeListCount} list${activeListCount !== 1 ? 's' : ''}`;
+    }
+}
+
+// Render lists UI
+function renderListsUI() {
+    const container = document.getElementById('boardContainer');
+    
+    if (!currentBoard || !currentBoard.lists || currentBoard.lists.length === 0) {
+        container.innerHTML = `
+            <div class="flex-shrink-0 w-80">
+                <div class="glass-effect rounded-xl p-4 text-center">
+                    <p class="text-gray-400 mb-4">No lists yet</p>
+                    <button type="button" onclick="addList()" class="px-4 py-2 bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 rounded-lg">
+                        <i class="fas fa-plus mr-2"></i>Add List
+                    </button>
+                </div>
             </div>
         `;
         return;
     }
-
-    currentBoard.lists.forEach(list => {
-        const listElement = createListElement(list);
-        listsContainer.appendChild(listElement);
-    });
-}
-
-// Create list element
-function createListElement(list) {
-    const listDiv = document.createElement('div');
-    listDiv.className = 'list';
-    listDiv.dataset.listId = list.id;
-
-    const cardCount = list.cards ? list.cards.length : 0;
-
-    listDiv.innerHTML = `
-        <div class="list-header">
-            <h3 class="list-title">
-                ${escapeHtml(list.name)}
-                <span class="list-count">${cardCount}</span>
-            </h3>
-            <div class="list-actions">
-                <button class="list-action-btn" onclick="deleteList('${list.id}')" title="Delete list">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" stroke-width="2"/>
-                    </svg>
-                </button>
+    
+    // Render each list
+    const listsHTML = currentBoard.lists.map(list => {
+        const listKey = list.name.toLowerCase().replace(/\s+/g, '');
+        return `
+            <div class="flex-shrink-0 w-80" data-list="${listKey}" data-list-id="${list.id}">
+                <div class="glass-effect rounded-xl p-4">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-white font-semibold">${list.name}</h3>
+                        <div class="flex gap-1">
+                            <button type="button" onclick="addCard('${listKey}', '${list.id}')" class="p-1 hover:bg-purple-500/10 rounded text-gray-400 hover:text-white">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                            ${list.name !== 'To Do' && list.name !== 'In Progress' && list.name !== 'Done' ? `
+                            <button type="button" onclick="deleteList('${list.id}')" class="p-1 hover:bg-red-500/10 rounded text-gray-400 hover:text-red-400">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                    <div id="${listKey}Cards" class="space-y-3 min-h-[200px] list-droppable">
+                        <div class="text-center text-gray-500 text-sm py-4" id="${listKey}Empty">No cards yet</div>
+                    </div>
+                </div>
             </div>
-        </div>
-        <div class="list-cards" id="list-${list.id}" ondrop="handleDrop(event, '${list.id}')" ondragover="handleDragOver(event)">
-            ${list.cards && list.cards.length > 0 ? list.cards.map(card => createCardHTML(card)).join('') : '<div class="empty-state"><p>No cards yet</p></div>'}
-        </div>
-        <div class="list-footer">
-            <button class="add-card-btn" onclick="showAddCardModal('${list.id}')">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path d="M12 5v14M5 12h14" stroke-width="2" stroke-linecap="round"/>
-                </svg>
-                Add Card
+        `;
+    }).join('');
+    
+    container.innerHTML = listsHTML + `
+        <div class="flex-shrink-0 w-80">
+            <button type="button" onclick="addList()" class="w-full glass-effect rounded-xl p-4 text-gray-400 hover:text-white hover:bg-purple-500/10 transition-all border-2 border-dashed border-gray-600 hover:border-purple-500">
+                <i class="fas fa-plus mr-2"></i>Add Another List
             </button>
         </div>
     `;
-
-    return listDiv;
+    
+    // Initialize drag and drop after rendering
+    setTimeout(initializeDragAndDrop, 100);
 }
 
-// Create card HTML
-function createCardHTML(card) {
-    const priorityBadge = card.priority ? `<span class="card-priority ${card.priority}">${card.priority}</span>` : '';
-    const description = card.description ? `<p class="card-description">${escapeHtml(card.description.substring(0, 100))}${card.description.length > 100 ? '...' : ''}</p>` : '';
-
-    let metaItems = [];
-
-    if (card.due_date) {
-        const dueDate = new Date(card.due_date);
-        const isOverdue = dueDate < new Date();
-        metaItems.push(`
-            <div class="card-meta-item ${isOverdue ? 'overdue' : ''}">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <circle cx="12" cy="12" r="10" stroke-width="2"/>
-                    <path d="M12 6v6l4 2" stroke-width="2" stroke-linecap="round"/>
-                </svg>
-                ${formatDate(dueDate)}
-            </div>
-        `);
-    }
-
-    if (card.assignee) {
-        metaItems.push(`
-            <div class="card-assignee" title="${escapeHtml(card.assignee.name)}">
-                ${card.assignee.profile_pic ? 
-                    `<img src="${escapeHtml(card.assignee.profile_pic)}" alt="${escapeHtml(card.assignee.name)}">` :
-                    `<div class="avatar-placeholder">${card.assignee.name.charAt(0).toUpperCase()}</div>`
+// Initialize drag and drop
+function initializeDragAndDrop() {
+    const lists = document.querySelectorAll('.list-droppable');
+    
+    lists.forEach(list => {
+        new Sortable(list, {
+            group: 'shared-cards',
+            animation: 200,
+            ghostClass: 'sortable-ghost',
+            chosenClass: 'sortable-chosen',
+            dragClass: 'sortable-drag',
+            filter: '.text-center', // Don't drag empty state
+            onEnd: function(evt) {
+                const cardId = evt.item.getAttribute('data-card-id');
+                const fromList = evt.from.id;
+                const toList = evt.to.id;
+                
+                if (fromList !== toList) {
+                    showNotification(`Card moved to ${toList.replace('Cards', '')}!`, 'success');
                 }
-            </div>
-        `);
-    }
-
-    const checklistCount = card.checklists ? card.checklists.length : 0;
-    const checklistCompleted = card.checklists ? card.checklists.filter(item => item.is_completed).length : 0;
-    
-    if (checklistCount > 0) {
-        metaItems.push(`
-            <div class="card-meta-item">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path d="M9 11l3 3L22 4" stroke-width="2" stroke-linecap="round"/>
-                    <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" stroke-width="2"/>
-                </svg>
-                ${checklistCompleted}/${checklistCount}
-            </div>
-        `);
-    }
-
-    const commentCount = card.comments ? card.comments.length : 0;
-    if (commentCount > 0) {
-        metaItems.push(`
-            <div class="card-meta-item">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" stroke-width="2"/>
-                </svg>
-                ${commentCount}
-            </div>
-        `);
-    }
-
-    return `
-        <div class="card" draggable="true" ondragstart="handleDragStart(event, '${card.id}')" ondragend="handleDragEnd(event)" onclick="showCardDetails('${card.id}')">
-            <div class="card-header">
-                <h4 class="card-title">${escapeHtml(card.title)}</h4>
-                ${priorityBadge}
-            </div>
-            ${description}
-            ${metaItems.length > 0 ? `<div class="card-meta">${metaItems.join('')}</div>` : ''}
-        </div>
-    `;
-} 
-
-
-// Drag and drop handlers
-function handleDragStart(event, cardId) {
-    draggedCard = cardId;
-    event.target.classList.add('dragging');
-    event.dataTransfer.effectAllowed = 'move';
-}
-
-function handleDragEnd(event) {
-    event.target.classList.remove('dragging');
-    draggedCard = null;
-}
-
-function handleDragOver(event) {
-    event.preventDefault();
-    event.dataTransfer.dropEffect = 'move';
-}
-
-async function handleDrop(event, listId) {
-    event.preventDefault();
-    
-    if (!draggedCard) return;
-
-    try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`/api/boards/cards/${draggedCard}/move`, {
-            method: 'PATCH',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ new_list_id: listId })
-        });
-
-        if (!response.ok) {
-            throw new Error('Failed to move card');
-        }
-
-        await loadBoard();
-        showNotification('Card moved successfully', 'success');
-    } catch (error) {
-        console.error('Error moving card:', error);
-        showNotification('Failed to move card', 'error');
-    }
-}
-
-// Modal functions
-function showAddListModal() {
-    document.getElementById('addListModal').classList.add('active');
-    document.getElementById('listName').focus();
-}
-
-function showAddCardModal(listId) {
-    document.getElementById('cardListId').value = listId;
-    document.getElementById('addCardModal').classList.add('active');
-    document.getElementById('cardTitle').focus();
-}
-
-async function showCardDetails(cardId) {
-    try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`/api/boards/cards/${cardId}`, {
-            headers: {
-                'Authorization': `Bearer ${token}`
+                
+                // Update empty states
+                updateEmptyStates();
             }
         });
-
-        if (!response.ok) {
-            throw new Error('Failed to load card details');
-        }
-
-        const card = await response.json();
-        renderCardDetails(card);
-        document.getElementById('cardDetailsModal').classList.add('active');
-    } catch (error) {
-        console.error('Error loading card details:', error);
-        showNotification('Failed to load card details', 'error');
-    }
+    });
 }
 
-function closeModal(modalId) {
-    document.getElementById(modalId).classList.remove('active');
-    
-    // Reset forms
-    if (modalId === 'addListModal') {
-        document.getElementById('addListForm').reset();
-    } else if (modalId === 'addCardModal') {
-        document.getElementById('addCardForm').reset();
-    }
-}
-
-// Form handlers
-async function handleAddList(event) {
-    event.preventDefault();
-    
-    const name = document.getElementById('listName').value.trim();
+// Load cards from API
+async function loadCards() {
+    if (!currentBoard || !currentBoard.lists) return;
     
     try {
-        const token = localStorage.getItem('token');
-        const response = await fetch('/api/boards/lists', {
+        // Cards are already loaded with the board data
+        currentBoard.lists.forEach(list => {
+            const listKey = list.name.toLowerCase().replace(/\s+/g, '');
+            const container = document.getElementById(listKey + 'Cards');
+            const emptyState = document.getElementById(listKey + 'Empty');
+            
+            if (!container) return;
+            
+            if (list.cards && list.cards.length > 0) {
+                // Hide empty state
+                if (emptyState) emptyState.style.display = 'none';
+                
+                // Add each card to the UI
+                list.cards.forEach(card => {
+                    const cardElement = createCardElement(card);
+                    container.appendChild(cardElement);
+                });
+            }
+        });
+        
+        updateEmptyStates();
+    } catch (error) {
+        console.error('Error loading cards:', error);
+    }
+}
+
+// Update empty states
+function updateEmptyStates() {
+    const lists = ['todo', 'progress', 'done'];
+    lists.forEach(listType => {
+        const container = document.getElementById(listType + 'Cards');
+        const emptyState = document.getElementById(listType + 'Empty');
+        const hasCards = container.children.length > 1; // More than just empty state
+        
+        if (emptyState) {
+            emptyState.style.display = hasCards ? 'none' : 'block';
+        }
+    });
+}
+
+// Add new list
+async function addList() {
+    showModal('addList');
+}
+
+// Show add list modal
+function showModal(type) {
+    const modalContainer = document.createElement('div');
+    modalContainer.id = 'customModal';
+    modalContainer.className = 'fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4';
+    modalContainer.onclick = (e) => { if (e.target === modalContainer) closeCustomModal(); };
+    
+    if (type === 'addList') {
+        modalContainer.innerHTML = `
+            <div class="glass-effect rounded-2xl p-8 max-w-md w-full" onclick="event.stopPropagation()">
+                <h2 class="text-2xl font-bold text-white mb-6">Add New List</h2>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-gray-300 text-sm mb-2">List Name</label>
+                        <input type="text" id="listNameInput" placeholder="New List" 
+                            class="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-xl text-white focus:border-purple-500 focus:outline-none">
+                    </div>
+                </div>
+                <div class="flex gap-3 mt-6">
+                    <button type="button" onclick="closeCustomModal()" class="flex-1 px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-medium transition-all">
+                        Cancel
+                    </button>
+                    <button type="button" onclick="submitList()" class="flex-1 px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-xl font-medium transition-all">
+                        Create List
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+    
+    document.body.appendChild(modalContainer);
+    setTimeout(() => document.getElementById('listNameInput')?.focus(), 100);
+}
+
+// Submit list
+async function submitList() {
+    const listName = document.getElementById('listNameInput').value.trim();
+    if (!listName) {
+        showNotification('Please enter a list name', 'error');
+        return;
+    }
+    
+    const boardId = getBoardId();
+    
+    try {
+        showLoading(true);
+        closeCustomModal();
+        
+        const response = await fetchWithAuth(`${API_BASE}/boards/lists`, {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                name,
-                board_id: boardId
+                name: listName,
+                board_id: boardId,
+                position: currentLists.length + 1
             })
         });
-
+        
         if (!response.ok) {
             throw new Error('Failed to create list');
         }
-
-        await loadBoard();
-        closeModal('addListModal');
-        showNotification('List created successfully', 'success');
+        
+        const result = await response.json();
+        showNotification('List created successfully!', 'success');
+        
+        // Add the new list to UI
+        addListToUI(result.data || result, listName);
+        
+        // Update list count
+        if (currentBoard.lists) {
+            currentBoard.lists.push(result.data || result);
+            updateListCount();
+        }
+        
     } catch (error) {
         console.error('Error creating list:', error);
         showNotification('Failed to create list', 'error');
+    } finally {
+        showLoading(false);
     }
 }
 
-async function handleAddCard(event) {
-    event.preventDefault();
+// Close custom modal
+function closeCustomModal() {
+    const modal = document.getElementById('customModal');
+    if (modal) modal.remove();
+}
+
+// Add list to UI
+function addListToUI(listData, listName) {
+    const container = document.getElementById('boardContainer');
+    const addButton = container.lastElementChild;
     
-    const title = document.getElementById('cardTitle').value.trim();
-    const description = document.getElementById('cardDescription').value.trim();
-    const priority = document.getElementById('cardPriority').value;
-    const due_date = document.getElementById('cardDueDate').value;
-    const list_id = document.getElementById('cardListId').value;
+    const newListElement = document.createElement('div');
+    newListElement.className = 'flex-shrink-0 w-80';
+    newListElement.setAttribute('data-list-id', listData.id);
     
-    try {
-        const token = localStorage.getItem('token');
-        const response = await fetch('/api/boards/cards', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                title,
-                description: description || undefined,
-                priority,
-                due_date: due_date || undefined,
-                list_id
-            })
-        });
-
-        if (!response.ok) {
-            throw new Error('Failed to create card');
-        }
-
-        await loadBoard();
-        closeModal('addCardModal');
-        showNotification('Card created successfully', 'success');
-    } catch (error) {
-        console.error('Error creating card:', error);
-        showNotification('Failed to create card', 'error');
-    }
-}
-
-// Delete functions
-async function deleteList(listId) {
-    if (!confirm('Are you sure you want to delete this list? All cards in this list will also be deleted.')) {
-        return;
-    }
-
-    try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`/api/boards/lists/${listId}`, {
-            method: 'DELETE',
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
-
-        if (!response.ok) {
-            throw new Error('Failed to delete list');
-        }
-
-        await loadBoard();
-        showNotification('List deleted successfully', 'success');
-    } catch (error) {
-        console.error('Error deleting list:', error);
-        showNotification('Failed to delete list', 'error');
-    }
-}
-
-async function deleteCard(cardId) {
-    if (!confirm('Are you sure you want to delete this card?')) {
-        return;
-    }
-
-    try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`/api/boards/cards/${cardId}`, {
-            method: 'DELETE',
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
-
-        if (!response.ok) {
-            throw new Error('Failed to delete card');
-        }
-
-        closeModal('cardDetailsModal');
-        await loadBoard();
-        showNotification('Card deleted successfully', 'success');
-    } catch (error) {
-        console.error('Error deleting card:', error);
-        showNotification('Failed to delete card', 'error');
-    }
-}
-
-// Render card details
-function renderCardDetails(card) {
-    const detailsBody = document.getElementById('cardDetailsBody');
-    document.getElementById('cardDetailsTitle').textContent = card.title;
-
-    const checklistHTML = card.checklists && card.checklists.length > 0 ? `
-        <div class="card-section">
-            <h3>Checklist</h3>
-            <div class="checklist">
-                ${card.checklists.map(item => `
-                    <div class="checklist-item">
-                        <input type="checkbox" ${item.is_completed ? 'checked' : ''} 
-                            onchange="toggleChecklistItem('${item.id}')">
-                        <span class="${item.is_completed ? 'completed' : ''}">${escapeHtml(item.content)}</span>
-                    </div>
-                `).join('')}
-            </div>
-            <button class="btn-text" onclick="showAddChecklistItem('${card.id}')">+ Add item</button>
-        </div>
-    ` : '';
-
-    const commentsHTML = card.comments && card.comments.length > 0 ? `
-        <div class="card-section">
-            <h3>Comments</h3>
-            <div class="comments">
-                ${card.comments.map(comment => `
-                    <div class="comment">
-                        <div class="comment-header">
-                            ${comment.user.profile_pic ? 
-                                `<img src="${escapeHtml(comment.user.profile_pic)}" alt="${escapeHtml(comment.user.name)}" class="comment-avatar">` :
-                                `<div class="avatar-placeholder">${comment.user.name.charAt(0).toUpperCase()}</div>`
-                            }
-                            <div>
-                                <strong>${escapeHtml(comment.user.name)}</strong>
-                                <span class="comment-time">${formatDate(new Date(comment.created_at))}</span>
-                            </div>
-                        </div>
-                        <p class="comment-content">${escapeHtml(comment.content)}</p>
-                    </div>
-                `).join('')}
-            </div>
-        </div>
-    ` : '';
-
-    detailsBody.innerHTML = `
-        <div class="card-details-content">
-            <div class="card-main">
-                ${card.description ? `
-                    <div class="card-section">
-                        <h3>Description</h3>
-                        <p>${escapeHtml(card.description)}</p>
-                    </div>
-                ` : ''}
-                
-                ${checklistHTML}
-                ${commentsHTML}
-                
-                <div class="card-section">
-                    <h3>Add Comment</h3>
-                    <form onsubmit="handleAddComment(event, '${card.id}')">
-                        <textarea id="commentContent" rows="3" placeholder="Write a comment..." required></textarea>
-                        <button type="submit" class="btn-primary">Add Comment</button>
-                    </form>
+    newListElement.innerHTML = `
+        <div class="glass-effect rounded-xl p-4">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-white font-semibold">${listName}</h3>
+                <div class="flex gap-1">
+                    <button type="button" onclick="addCardToList('${listData.id}')" class="p-1 hover:bg-purple-500/10 rounded text-gray-400 hover:text-white">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                    <button type="button" onclick="deleteList('${listData.id}')" class="p-1 hover:bg-red-500/10 rounded text-gray-400 hover:text-red-400">
+                        <i class="fas fa-trash"></i>
+                    </button>
                 </div>
             </div>
-            
-            <div class="card-sidebar">
-                <div class="card-info">
-                    <h3>Details</h3>
-                    
-                    ${card.priority ? `
-                        <div class="info-item">
-                            <label>Priority</label>
-                            <span class="card-priority ${card.priority}">${card.priority}</span>
-                        </div>
-                    ` : ''}
-                    
-                    ${card.due_date ? `
-                        <div class="info-item">
-                            <label>Due Date</label>
-                            <span>${formatDate(new Date(card.due_date))}</span>
-                        </div>
-                    ` : ''}
-                    
-                    ${card.assignee ? `
-                        <div class="info-item">
-                            <label>Assigned To</label>
-                            <div class="assignee-info">
-                                ${card.assignee.profile_pic ? 
-                                    `<img src="${escapeHtml(card.assignee.profile_pic)}" alt="${escapeHtml(card.assignee.name)}">` :
-                                    `<div class="avatar-placeholder">${card.assignee.name.charAt(0).toUpperCase()}</div>`
-                                }
-                                <span>${escapeHtml(card.assignee.name)}</span>
-                            </div>
-                        </div>
-                    ` : ''}
-                    
-                    <div class="info-item">
-                        <label>List</label>
-                        <span>${escapeHtml(card.list.name)}</span>
-                    </div>
-                </div>
-                
-                <div class="card-actions">
-                    <button class="btn-danger" onclick="deleteCard('${card.id}')">Delete Card</button>
-                </div>
+            <div id="list-${listData.id}-cards" class="space-y-3 min-h-[200px]">
+                <div class="text-center text-gray-500 text-sm py-4">No cards yet</div>
             </div>
         </div>
     `;
+    
+    container.insertBefore(newListElement, addButton);
 }
 
-// Add comment handler
-async function handleAddComment(event, cardId) {
-    event.preventDefault();
+// Add new card
+async function addCard(listType, listId) {
+    // If listId is not provided, try to get it from the map
+    if (!listId) {
+        listId = listIdMap[listType];
+    }
     
-    const content = document.getElementById('commentContent').value.trim();
+    if (!listId) {
+        showNotification('List ID not found', 'error');
+        console.error('List ID not found for:', listType);
+        return;
+    }
+    
+    showCardModal(listType, null, listId);
+}
+
+// Show card modal
+function showCardModal(listType, cardData = null, listId = null) {
+    const modalContainer = document.createElement('div');
+    modalContainer.id = 'customModal';
+    modalContainer.className = 'fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4';
+    modalContainer.onclick = (e) => { if (e.target === modalContainer) closeCustomModal(); };
+    
+    const isEdit = cardData !== null;
+    const selectedColor = (isEdit && cardData.color) ? cardData.color : '#1a1a2e';
+    
+    modalContainer.innerHTML = `
+        <div class="glass-effect rounded-2xl p-8 max-w-md w-full" onclick="event.stopPropagation()">
+            <h2 class="text-2xl font-bold text-white mb-6">${isEdit ? 'Edit Card' : 'Add New Card'}</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-gray-300 text-sm mb-2">Card Title</label>
+                    <input type="text" id="cardTitleInput" placeholder="New Task" value="${isEdit ? cardData.title : ''}"
+                        class="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-xl text-white focus:border-purple-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-gray-300 text-sm mb-2">Description (Optional)</label>
+                    <textarea id="cardDescInput" placeholder="Add more details..." rows="3"
+                        class="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-xl text-white focus:border-purple-500 focus:outline-none resize-none">${isEdit ? (cardData.description || '') : ''}</textarea>
+                </div>
+                <div>
+                    <label class="block text-gray-300 text-sm mb-2">Card Color</label>
+                    <div class="grid grid-cols-6 gap-2">
+                        <button type="button" onclick="selectCardColor('#1a1a2e', this)" data-color="#1a1a2e" class="w-full h-10 rounded-lg bg-[#1a1a2e] border-2 ${selectedColor === '#1a1a2e' ? 'border-white' : 'border-transparent'} hover:border-gray-400 transition-all"></button>
+                        <button type="button" onclick="selectCardColor('#ef4444', this)" data-color="#ef4444" class="w-full h-10 rounded-lg bg-red-500 border-2 ${selectedColor === '#ef4444' ? 'border-white' : 'border-transparent'} hover:border-gray-400 transition-all"></button>
+                        <button type="button" onclick="selectCardColor('#f59e0b', this)" data-color="#f59e0b" class="w-full h-10 rounded-lg bg-orange-500 border-2 ${selectedColor === '#f59e0b' ? 'border-white' : 'border-transparent'} hover:border-gray-400 transition-all"></button>
+                        <button type="button" onclick="selectCardColor('#10b981', this)" data-color="#10b981" class="w-full h-10 rounded-lg bg-green-500 border-2 ${selectedColor === '#10b981' ? 'border-white' : 'border-transparent'} hover:border-gray-400 transition-all"></button>
+                        <button type="button" onclick="selectCardColor('#3b82f6', this)" data-color="#3b82f6" class="w-full h-10 rounded-lg bg-blue-500 border-2 ${selectedColor === '#3b82f6' ? 'border-white' : 'border-transparent'} hover:border-gray-400 transition-all"></button>
+                        <button type="button" onclick="selectCardColor('#8b5cf6', this)" data-color="#8b5cf6" class="w-full h-10 rounded-lg bg-purple-500 border-2 ${selectedColor === '#8b5cf6' ? 'border-white' : 'border-transparent'} hover:border-gray-400 transition-all"></button>
+                        <button type="button" onclick="selectCardColor('#ec4899', this)" data-color="#ec4899" class="w-full h-10 rounded-lg bg-pink-500 border-2 ${selectedColor === '#ec4899' ? 'border-white' : 'border-transparent'} hover:border-gray-400 transition-all"></button>
+                        <button type="button" onclick="selectCardColor('#06b6d4', this)" data-color="#06b6d4" class="w-full h-10 rounded-lg bg-cyan-500 border-2 ${selectedColor === '#06b6d4' ? 'border-white' : 'border-transparent'} hover:border-gray-400 transition-all"></button>
+                        <button type="button" onclick="selectCardColor('#84cc16', this)" data-color="#84cc16" class="w-full h-10 rounded-lg bg-lime-500 border-2 ${selectedColor === '#84cc16' ? 'border-white' : 'border-transparent'} hover:border-gray-400 transition-all"></button>
+                        <button type="button" onclick="selectCardColor('#f97316', this)" data-color="#f97316" class="w-full h-10 rounded-lg bg-orange-600 border-2 ${selectedColor === '#f97316' ? 'border-white' : 'border-transparent'} hover:border-gray-400 transition-all"></button>
+                        <button type="button" onclick="selectCardColor('#14b8a6', this)" data-color="#14b8a6" class="w-full h-10 rounded-lg bg-teal-500 border-2 ${selectedColor === '#14b8a6' ? 'border-white' : 'border-transparent'} hover:border-gray-400 transition-all"></button>
+                        <button type="button" onclick="selectCardColor('#a855f7', this)" data-color="#a855f7" class="w-full h-10 rounded-lg bg-purple-600 border-2 ${selectedColor === '#a855f7' ? 'border-white' : 'border-transparent'} hover:border-gray-400 transition-all"></button>
+                    </div>
+                    <input type="hidden" id="cardColorInput" value="${selectedColor}">
+                </div>
+            </div>
+            <div class="flex gap-3 mt-6">
+                <button type="button" onclick="closeCustomModal()" class="flex-1 px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-medium transition-all">
+                    Cancel
+                </button>
+                <button type="button" onclick="${isEdit ? `submitEditCard('${cardData.id}')` : `submitCard('${listType}', '${listId}')`}" class="flex-1 px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-xl font-medium transition-all">
+                    ${isEdit ? 'Update' : 'Create'} Card
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modalContainer);
+    setTimeout(() => document.getElementById('cardTitleInput')?.focus(), 100);
+}
+
+// Select card color
+function selectCardColor(color, button) {
+    // Remove border from all color buttons
+    const colorButtons = document.querySelectorAll('[data-color]');
+    colorButtons.forEach(btn => {
+        btn.classList.remove('border-white');
+        btn.classList.add('border-transparent');
+    });
+    
+    // Add border to selected button
+    button.classList.remove('border-transparent');
+    button.classList.add('border-white');
+    
+    // Update hidden input
+    document.getElementById('cardColorInput').value = color;
+}
+
+// Submit card
+async function submitCard(listType, listId) {
+    const cardTitle = document.getElementById('cardTitleInput').value.trim();
+    const cardDescription = document.getElementById('cardDescInput').value.trim();
+    const cardColor = document.getElementById('cardColorInput').value;
+    
+    if (!cardTitle) {
+        showNotification('Please enter a card title', 'error');
+        return;
+    }
+    
+    // Get listId if not provided
+    if (!listId) {
+        listId = listIdMap[listType];
+    }
+    
+    if (!listId) {
+        showNotification('List not found. Please refresh the page.', 'error');
+        return;
+    }
     
     try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`/api/boards/cards/${cardId}/comments`, {
+        showLoading(true);
+        closeCustomModal();
+        
+        // Save to API
+        const response = await fetchWithAuth(`${API_BASE}/boards/cards`, {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ content })
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                title: cardTitle,
+                list_id: listId,
+                description: cardDescription,
+                priority: 'MEDIUM',
+                color: cardColor
+            })
         });
-
+        
         if (!response.ok) {
-            throw new Error('Failed to add comment');
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to create card');
         }
-
-        document.getElementById('commentContent').value = '';
-        await showCardDetails(cardId);
-        showNotification('Comment added', 'success');
+        
+        const result = await response.json();
+        const card = result.data || result;
+        
+        // Add card to UI
+        const container = document.getElementById(listType + 'Cards');
+        const emptyState = document.getElementById(listType + 'Empty');
+        if (emptyState) emptyState.style.display = 'none';
+        
+        const cardElement = createCardElement(card);
+        container.appendChild(cardElement);
+        
+        showNotification('Card saved successfully!', 'success');
+        updateEmptyStates();
+        
     } catch (error) {
-        console.error('Error adding comment:', error);
-        showNotification('Failed to add comment', 'error');
+        console.error('Error creating card:', error);
+        showNotification(error.message || 'Failed to create card', 'error');
+    } finally {
+        showLoading(false);
     }
 }
 
-// Toggle checklist item
-async function toggleChecklistItem(itemId) {
+// Add card to specific list
+async function addCardToList(listId) {
+    showCardModalForList(listId);
+}
+
+// Show card modal for specific list
+function showCardModalForList(listId) {
+    const modalContainer = document.createElement('div');
+    modalContainer.id = 'customModal';
+    modalContainer.className = 'fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4';
+    modalContainer.onclick = (e) => { if (e.target === modalContainer) closeCustomModal(); };
+    
+    modalContainer.innerHTML = `
+        <div class="glass-effect rounded-2xl p-8 max-w-md w-full" onclick="event.stopPropagation()">
+            <h2 class="text-2xl font-bold text-white mb-6">Add New Card</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-gray-300 text-sm mb-2">Card Title</label>
+                    <input type="text" id="cardTitleInput" placeholder="New Task"
+                        class="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-xl text-white focus:border-purple-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-gray-300 text-sm mb-2">Description (Optional)</label>
+                    <textarea id="cardDescInput" placeholder="Add more details..." rows="3"
+                        class="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-xl text-white focus:border-purple-500 focus:outline-none resize-none"></textarea>
+                </div>
+                <div>
+                    <label class="block text-gray-300 text-sm mb-2">Card Color</label>
+                    <div class="grid grid-cols-6 gap-2">
+                        <button type="button" onclick="selectCardColor('#1a1a2e', this)" data-color="#1a1a2e" class="w-full h-10 rounded-lg bg-[#1a1a2e] border-2 border-white hover:border-gray-400 transition-all"></button>
+                        <button type="button" onclick="selectCardColor('#ef4444', this)" data-color="#ef4444" class="w-full h-10 rounded-lg bg-red-500 border-2 border-transparent hover:border-gray-400 transition-all"></button>
+                        <button type="button" onclick="selectCardColor('#f59e0b', this)" data-color="#f59e0b" class="w-full h-10 rounded-lg bg-orange-500 border-2 border-transparent hover:border-gray-400 transition-all"></button>
+                        <button type="button" onclick="selectCardColor('#10b981', this)" data-color="#10b981" class="w-full h-10 rounded-lg bg-green-500 border-2 border-transparent hover:border-gray-400 transition-all"></button>
+                        <button type="button" onclick="selectCardColor('#3b82f6', this)" data-color="#3b82f6" class="w-full h-10 rounded-lg bg-blue-500 border-2 border-transparent hover:border-gray-400 transition-all"></button>
+                        <button type="button" onclick="selectCardColor('#8b5cf6', this)" data-color="#8b5cf6" class="w-full h-10 rounded-lg bg-purple-500 border-2 border-transparent hover:border-gray-400 transition-all"></button>
+                        <button type="button" onclick="selectCardColor('#ec4899', this)" data-color="#ec4899" class="w-full h-10 rounded-lg bg-pink-500 border-2 border-transparent hover:border-gray-400 transition-all"></button>
+                        <button type="button" onclick="selectCardColor('#06b6d4', this)" data-color="#06b6d4" class="w-full h-10 rounded-lg bg-cyan-500 border-2 border-transparent hover:border-gray-400 transition-all"></button>
+                        <button type="button" onclick="selectCardColor('#84cc16', this)" data-color="#84cc16" class="w-full h-10 rounded-lg bg-lime-500 border-2 border-transparent hover:border-gray-400 transition-all"></button>
+                        <button type="button" onclick="selectCardColor('#f97316', this)" data-color="#f97316" class="w-full h-10 rounded-lg bg-orange-600 border-2 border-transparent hover:border-gray-400 transition-all"></button>
+                        <button type="button" onclick="selectCardColor('#14b8a6', this)" data-color="#14b8a6" class="w-full h-10 rounded-lg bg-teal-500 border-2 border-transparent hover:border-gray-400 transition-all"></button>
+                        <button type="button" onclick="selectCardColor('#a855f7', this)" data-color="#a855f7" class="w-full h-10 rounded-lg bg-purple-600 border-2 border-transparent hover:border-gray-400 transition-all"></button>
+                    </div>
+                    <input type="hidden" id="cardColorInput" value="#1a1a2e">
+                </div>
+            </div>
+            <div class="flex gap-3 mt-6">
+                <button type="button" onclick="closeCustomModal()" class="flex-1 px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-medium transition-all">
+                    Cancel
+                </button>
+                <button type="button" onclick="submitCardToList('${listId}')" class="flex-1 px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-xl font-medium transition-all">
+                    Create Card
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modalContainer);
+    setTimeout(() => document.getElementById('cardTitleInput')?.focus(), 100);
+}
+
+// Submit card to specific list
+async function submitCardToList(listId) {
+    const cardTitle = document.getElementById('cardTitleInput').value.trim();
+    const cardDescription = document.getElementById('cardDescInput').value.trim();
+    const cardColor = document.getElementById('cardColorInput').value;
+    
+    if (!cardTitle) {
+        showNotification('Please enter a card title', 'error');
+        return;
+    }
+    
     try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`/api/boards/checklist/${itemId}/toggle`, {
-            method: 'PATCH',
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
+        showLoading(true);
+        closeCustomModal();
+        
+        const response = await fetchWithAuth(`${API_BASE}/boards/cards`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                title: cardTitle,
+                list_id: listId,
+                description: cardDescription,
+                priority: 'MEDIUM',
+                color: cardColor
+            })
         });
-
+        
         if (!response.ok) {
-            throw new Error('Failed to toggle checklist item');
+            throw new Error('Failed to create card');
         }
-
-        await loadBoard();
+        
+        const result = await response.json();
+        const card = result.data || result;
+        
+        // Add card to UI
+        const container = document.getElementById(`list-${listId}-cards`);
+        const emptyState = container.querySelector('.text-center');
+        if (emptyState) emptyState.style.display = 'none';
+        
+        const cardElement = createCardElement(card);
+        container.appendChild(cardElement);
+        
+        showNotification('Card created successfully!', 'success');
+        
     } catch (error) {
-        console.error('Error toggling checklist item:', error);
-        showNotification('Failed to update checklist item', 'error');
+        console.error('Error creating card:', error);
+        showNotification('Failed to create card', 'error');
+    } finally {
+        showLoading(false);
     }
 }
 
-// Utility functions
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+// Add card to UI
+function addCardToUI(listType, cardData) {
+    const container = document.getElementById(listType + 'Cards');
+    const emptyState = document.getElementById(listType + 'Empty');
+    
+    if (emptyState) emptyState.style.display = 'none';
+    
+    const cardElement = createCardElement(cardData);
+    container.appendChild(cardElement);
 }
 
-function formatDate(date) {
-    const now = new Date();
-    const diff = date - now;
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+// Create card element
+function createCardElement(cardData) {
+    const cardElement = document.createElement('div');
+    const cardColor = cardData.color || '#1a1a2e';
+    cardElement.className = 'border border-gray-700 rounded-lg p-3 card-hover cursor-pointer';
+    cardElement.style.backgroundColor = cardColor;
+    cardElement.setAttribute('data-card-id', cardData.id);
     
-    if (days === 0) return 'Today';
-    if (days === 1) return 'Tomorrow';
-    if (days === -1) return 'Yesterday';
-    if (days < 0) return `${Math.abs(days)} days ago`;
-    if (days < 7) return `in ${days} days`;
+    const createdDate = new Date(cardData.created_at).toLocaleDateString();
     
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    cardElement.innerHTML = `
+        <h4 class="text-white font-medium mb-2">${cardData.title}</h4>
+        ${cardData.description ? `<p class="text-gray-300 text-sm mb-2">${cardData.description}</p>` : ''}
+        <div class="flex items-center justify-between text-xs text-gray-400">
+            <span><i class="far fa-clock mr-1"></i>${createdDate}</span>
+            <div class="flex gap-2">
+                <button type="button" onclick="editCard('${cardData.id}')" class="text-blue-400 hover:text-blue-300">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button type="button" onclick="deleteCard('${cardData.id}', this)" class="text-red-400 hover:text-red-300">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+    `;
+    
+    return cardElement;
 }
 
-function goToDashboard() {
+// Edit card
+async function editCard(cardId) {
+    const cardElement = document.querySelector(`[data-card-id="${cardId}"]`);
+    const currentTitle = cardElement.querySelector('h4').textContent;
+    const currentDesc = cardElement.querySelector('p')?.textContent || '';
+    const currentColor = cardElement.style.backgroundColor || '#1a1a2e';
+    
+    // Convert RGB to hex if needed
+    let hexColor = currentColor;
+    if (currentColor.startsWith('rgb')) {
+        const rgb = currentColor.match(/\d+/g);
+        hexColor = '#' + rgb.map(x => parseInt(x).toString(16).padStart(2, '0')).join('');
+    }
+    
+    showCardModal(null, {
+        id: cardId,
+        title: currentTitle,
+        description: currentDesc,
+        color: hexColor
+    });
+}
+
+// Submit edit card
+async function submitEditCard(cardId) {
+    const newTitle = document.getElementById('cardTitleInput').value.trim();
+    const newDesc = document.getElementById('cardDescInput').value.trim();
+    const newColor = document.getElementById('cardColorInput').value;
+    
+    if (!newTitle) {
+        showNotification('Please enter a card title', 'error');
+        return;
+    }
+    
+    try {
+        closeCustomModal();
+        
+        // Update UI immediately
+        const cardElement = document.querySelector(`[data-card-id="${cardId}"]`);
+        cardElement.style.backgroundColor = newColor;
+        cardElement.querySelector('h4').textContent = newTitle;
+        const descElement = cardElement.querySelector('p');
+        if (newDesc) {
+            if (descElement) {
+                descElement.textContent = newDesc;
+            } else {
+                const titleElement = cardElement.querySelector('h4');
+                titleElement.insertAdjacentHTML('afterend', `<p class="text-gray-300 text-sm mb-2">${newDesc}</p>`);
+            }
+        } else if (descElement) {
+            descElement.remove();
+        }
+        
+        showNotification('Card updated!', 'success');
+        
+    } catch (error) {
+        console.error('Error updating card:', error);
+        showNotification('Failed to update card', 'error');
+    }
+}
+
+// Delete card
+async function deleteCard(cardId, buttonElement) {
+    if (!confirm('Delete this card?')) return;
+    
+    try {
+        showLoading(true);
+        
+        // Remove from UI
+        const cardElement = buttonElement.closest('[data-card-id]');
+        cardElement.remove();
+        
+        showNotification('Card deleted', 'info');
+        updateEmptyStates();
+        
+    } catch (error) {
+        console.error('Error deleting card:', error);
+        showNotification('Failed to delete card', 'error');
+    } finally {
+        showLoading(false);
+    }
+}
+
+// Delete list
+async function deleteList(listId) {
+    if (!confirm('Delete this list and all its cards?')) return;
+    
+    try {
+        showLoading(true);
+        
+        const response = await fetchWithAuth(`${API_BASE}/boards/lists/${listId}`, {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to delete list');
+        }
+        
+        // Remove from UI
+        const listElement = document.querySelector(`[data-list-id="${listId}"]`);
+        if (listElement) {
+            listElement.remove();
+        }
+        
+        // Update list count
+        if (currentBoard.lists) {
+            currentBoard.lists = currentBoard.lists.filter(list => list.id !== listId);
+            updateListCount();
+        }
+        
+        showNotification('List deleted successfully!', 'success');
+        
+    } catch (error) {
+        console.error('Error deleting list:', error);
+        showNotification('Failed to delete list', 'error');
+    } finally {
+        showLoading(false);
+    }
+}
+
+// Go back to dashboard
+function goBack() {
     window.location.href = '/dashboard.html';
 }
 
-// Theme functions
-function initTheme() {
-    const theme = localStorage.getItem('theme') || 'light';
-    document.documentElement.setAttribute('data-theme', theme);
+// Show loading state
+function showLoading(show) {
+    const existingLoader = document.getElementById('loader');
+    
+    if (show && !existingLoader) {
+        const loader = document.createElement('div');
+        loader.id = 'loader';
+        loader.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50';
+        loader.innerHTML = `
+            <div class="glass-effect rounded-xl p-6 flex items-center gap-3">
+                <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-500"></div>
+                <span class="text-white">Loading...</span>
+            </div>
+        `;
+        document.body.appendChild(loader);
+    } else if (!show && existingLoader) {
+        existingLoader.remove();
+    }
 }
 
-function toggleTheme() {
-    const currentTheme = document.documentElement.getAttribute('data-theme');
-    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-    document.documentElement.setAttribute('data-theme', newTheme);
-    localStorage.setItem('theme', newTheme);
-}
-
-// Notification function
+// Notification system
 function showNotification(message, type = 'info') {
-    const notification = document.createElement('div');
-    notification.className = `notification ${type}`;
+    const colors = {
+        'success': 'bg-green-500/20 border-2 border-green-500 text-green-400',
+        'error': 'bg-red-500/20 border-2 border-red-500 text-red-400',
+        'info': 'bg-blue-500/20 border-2 border-blue-500 text-blue-400'
+    };
+    
+    const notification = document.getElementById('notification');
+    notification.className = `fixed top-4 right-4 z-50 px-6 py-4 rounded-xl font-medium ${colors[type]}`;
     notification.textContent = message;
-    
-    document.body.appendChild(notification);
-    
-    setTimeout(() => {
-        notification.classList.add('show');
-    }, 10);
+    notification.style.transform = 'translateX(0)';
     
     setTimeout(() => {
-        notification.classList.remove('show');
-        setTimeout(() => {
-            notification.remove();
-        }, 300);
-    }, 3000);
+        notification.style.transform = 'translateX(400px)';
+    }, 4000);
 }
 
-// Close modals on outside click
-window.addEventListener('click', (event) => {
-    if (event.target.classList.contains('modal')) {
-        event.target.classList.remove('active');
-    }
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+    loadBoard();
 });
 
-// Close modals on escape key
-window.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') {
-        document.querySelectorAll('.modal.active').forEach(modal => {
-            modal.classList.remove('active');
-        });
-    }
-});
+// Make functions globally available
+window.addList = addList;
+window.submitList = submitList;
+window.addCard = addCard;
+window.submitCard = submitCard;
+window.addCardToList = addCardToList;
+window.submitCardToList = submitCardToList;
+window.editCard = editCard;
+window.submitEditCard = submitEditCard;
+window.deleteCard = deleteCard;
+window.deleteList = deleteList;
+window.goBack = goBack;
+window.closeCustomModal = closeCustomModal;
+window.initializeDragAndDrop = initializeDragAndDrop;
+window.applyBoardColor = applyBoardColor;
+window.updateListCount = updateListCount;
+window.selectCardColor = selectCardColor;

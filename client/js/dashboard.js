@@ -1,3 +1,101 @@
+// --- Global fetch wrapper for 401 handling ---
+async function fetchWithAuth(url, options = {}) {
+    const token = localStorage.getItem('token');
+    options.headers = options.headers || {};
+    if (token) options.headers['Authorization'] = `Bearer ${token}`;
+    const res = await fetch(url, options);
+    if (res.status === 401) {
+        showNotification('Session expired. Please log in again.', 'error');
+        setTimeout(() => { window.location.href = '/index.html'; }, 1500);
+        throw new Error('Unauthorized');
+    }
+    return res;
+}
+// --- Workspace & Project Creation UI Logic ---
+function showModalById(id) {
+    document.getElementById(id).classList.remove('hidden');
+}
+
+function hideModalById(id) {
+    document.getElementById(id).classList.add('hidden');
+}
+
+// Workspace Modal
+document.addEventListener('DOMContentLoaded', () => {
+    const wsBtn = document.getElementById('createWorkspaceBtn');
+    const wsBtnTop = document.getElementById('createWorkspaceBtnTop');
+    const wsModal = document.getElementById('createWorkspaceModal');
+    const wsForm = document.getElementById('workspaceForm');
+    const wsClose = document.getElementById('closeWorkspaceModal');
+    if (wsBtn) wsBtn.addEventListener('click', () => showModalById('createWorkspaceModal'));
+    if (wsBtnTop) wsBtnTop.addEventListener('click', () => showModalById('createWorkspaceModal'));
+    if (wsClose) wsClose.addEventListener('click', () => hideModalById('createWorkspaceModal'));
+    if (wsForm) wsForm.onsubmit = async(e) => {
+        e.preventDefault();
+        const name = document.getElementById('workspaceName').value;
+        const type = document.getElementById('workspaceType').value;
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${API_BASE}/workspaces`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, type })
+            });
+            if (!res.ok) throw new Error('Failed to create workspace');
+            showNotification('Workspace created!', 'success');
+            hideModalById('createWorkspaceModal');
+            loadData();
+        } catch (err) {
+            showNotification(err.message, 'error');
+        }
+    };
+});
+
+// Project Modal (Workspace section only)
+document.addEventListener('DOMContentLoaded', () => {
+    const prBtn = document.getElementById('createProjectBtn');
+    const prModal = document.getElementById('createProjectModal');
+    const prForm = document.getElementById('projectForm');
+    const prClose = document.getElementById('closeProjectModal');
+    if (prBtn) prBtn.addEventListener('click', async() => {
+        // Always populate workspace dropdown with latest workspaces
+        const wsSelect = document.getElementById('projectWorkspace');
+        if (!currentWorkspaces.length) {
+            showNotification('Please create a workspace first.', 'error');
+            return;
+        }
+        wsSelect.innerHTML = currentWorkspaces.map(ws => `<option value="${ws.id}">${ws.name}</option>`).join('');
+        showModalById('createProjectModal');
+    });
+    if (prClose) prClose.addEventListener('click', () => hideModalById('createProjectModal'));
+    if (prForm) prForm.onsubmit = async(e) => {
+        e.preventDefault();
+        const name = document.getElementById('projectName').value;
+        const description = document.getElementById('projectDescription').value;
+        const workspace_id = document.getElementById('projectWorkspace').value;
+        if (!workspace_id) {
+            showNotification('Workspace is required.', 'error');
+            return;
+        }
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${API_BASE}/projects`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, description, workspace_id })
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.error || err.message || 'Failed to create project');
+            }
+            showNotification('Project created!', 'success');
+            hideModalById('createProjectModal');
+            loadData();
+        } catch (err) {
+            showNotification(err.message, 'error');
+        }
+    };
+});
 // Simple working dashboard
 const API_BASE = '/api';
 let currentWorkspaces = [];
@@ -28,6 +126,12 @@ function checkAuth() {
         if (avatarImg) {
             avatarImg.src = userData.profile_pic || `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.name)}&size=120&background=8b5cf6&color=fff`;
         }
+        
+        // Set settings fields
+        const settingsName = document.getElementById('settingsName');
+        const settingsEmail = document.getElementById('settingsEmail');
+        if (settingsName) settingsName.value = userData.name;
+        if (settingsEmail) settingsEmail.value = userData.email;
     } catch (error) {
         console.error('Auth error:', error);
     }
@@ -37,36 +141,26 @@ function checkAuth() {
 
 // Load data
 async function loadData() {
-    const token = localStorage.getItem('token');
-
     try {
-        const wsRes = await fetch(`${API_BASE}/workspaces`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
+        showLoadingState();
+        
+        const wsRes = await fetchWithAuth(`${API_BASE}/workspaces`);
         if (wsRes.ok) {
             const data = await wsRes.json();
             currentWorkspaces = data.workspaces || data || [];
-            const totalRevenue = document.getElementById('totalRevenue');
-            if (totalRevenue) totalRevenue.textContent = currentWorkspaces.length;
+            updateWorkspaceCount();
         }
 
-        const prRes = await fetch(`${API_BASE}/projects`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
+        const prRes = await fetchWithAuth(`${API_BASE}/projects`);
         if (prRes.ok) {
             const data = await prRes.json();
             currentProjects = data.projects || data || [];
-            const activeProjects = document.getElementById('activeProjects');
-            if (activeProjects) activeProjects.textContent = currentProjects.length;
-
-            // Update active projects list in overview
+            updateProjectCount();
             updateActiveProjectsList();
         }
 
         // Load invitations
-        const invRes = await fetch(`${API_BASE}/workspaces/invitations/pending`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
+        const invRes = await fetchWithAuth(`${API_BASE}/workspaces/invitations/pending`);
         if (invRes.ok) {
             const data = await invRes.json();
             pendingInvitations = data.invitations || [];
@@ -75,12 +169,142 @@ async function loadData() {
 
         // Update sidebar
         updateTeamMembers();
-        updateRecentActivity();
-
-        initChart();
+        loadRecentActivity();
+        
+        hideLoadingState();
     } catch (error) {
         console.error('Load error:', error);
+        hideLoadingState();
+        showNotification('Failed to load data', 'error');
     }
+}
+
+// Show loading state
+function showLoadingState() {
+    const counts = ['workspaceCount', 'projectCount', 'boardCount', 'taskCount'];
+    counts.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.innerHTML = '<div class="skeleton h-8 w-16 rounded"></div>';
+        }
+    });
+}
+
+// Hide loading state
+function hideLoadingState() {
+    // Counts will be updated by their respective functions
+}
+
+// Update workspace count
+function updateWorkspaceCount() {
+    const el = document.getElementById('workspaceCount');
+    if (el) {
+        el.innerHTML = `<span class="pulse-glow">${currentWorkspaces.length}</span>`;
+    }
+}
+
+// Update project count
+function updateProjectCount() {
+    const el = document.getElementById('projectCount');
+    if (el) {
+        el.innerHTML = `<span class="pulse-glow">${currentProjects.length}</span>`;
+    }
+}
+
+// Load recent activity
+async function loadRecentActivity() {
+    const container = document.getElementById('recentActivity');
+    if (!container) return;
+    
+    // Show loading
+    container.innerHTML = '<div class="text-gray-400 text-center py-8"><i class="fas fa-spinner fa-spin mr-2"></i>Loading activity...</div>';
+    
+    try {
+        const activities = [];
+        
+        // Add workspace activities
+        currentWorkspaces.slice(0, 3).forEach(ws => {
+            const timeAgo = getTimeAgo(new Date(ws.created_at));
+            activities.push({
+                icon: 'fa-briefcase',
+                color: 'text-purple-400',
+                bgColor: 'bg-purple-500/20',
+                text: `Created workspace "${ws.name}"`,
+                time: timeAgo,
+                type: 'workspace'
+            });
+        });
+        
+        // Add project activities
+        currentProjects.slice(0, 3).forEach(p => {
+            const timeAgo = getTimeAgo(new Date(p.created_at));
+            activities.push({
+                icon: 'fa-folder',
+                color: 'text-blue-400',
+                bgColor: 'bg-blue-500/20',
+                text: `Created project "${p.name}"`,
+                time: timeAgo,
+                type: 'project'
+            });
+        });
+        
+        // Sort by most recent
+        activities.sort((a, b) => b.time.localeCompare(a.time));
+        
+        if (activities.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-12">
+                    <div class="w-16 h-16 rounded-full bg-gray-800 flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-inbox text-gray-600 text-2xl"></i>
+                    </div>
+                    <p class="text-gray-500 text-sm">No recent activity</p>
+                    <p class="text-gray-600 text-xs mt-1">Start by creating a workspace or project</p>
+                </div>
+            `;
+            return;
+        }
+        
+        container.innerHTML = activities.slice(0, 8).map(a => `
+            <div class="activity-item flex items-start gap-3 p-3 hover:bg-purple-500/5 rounded-lg transition-all cursor-pointer">
+                <div class="w-10 h-10 rounded-lg ${a.bgColor} flex items-center justify-center flex-shrink-0">
+                    <i class="fas ${a.icon} ${a.color}"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-white text-sm">${a.text}</p>
+                    <p class="text-gray-500 text-xs mt-1">
+                        <i class="far fa-clock mr-1"></i>${a.time}
+                    </p>
+                </div>
+            </div>
+        `).join('');
+        
+    } catch (error) {
+        console.error('Error loading activity:', error);
+        container.innerHTML = '<div class="text-red-400 text-center py-8">Failed to load activity</div>';
+    }
+}
+
+// Get time ago string
+function getTimeAgo(date) {
+    const seconds = Math.floor((new Date() - date) / 1000);
+    
+    const intervals = {
+        year: 31536000,
+        month: 2592000,
+        week: 604800,
+        day: 86400,
+        hour: 3600,
+        minute: 60
+    };
+    
+    for (const [unit, secondsInUnit] of Object.entries(intervals)) {
+        const interval = Math.floor(seconds / secondsInUnit);
+        if (interval >= 1) {
+            return `${interval} ${unit}${interval > 1 ? 's' : ''} ago`;
+        }
+    }
+    
+    return 'Just now';
 }
 
 // Update active projects list in overview
@@ -147,47 +371,8 @@ function updateTeamMembers() {
 
 // Update recent activity
 function updateRecentActivity() {
-    const list = document.getElementById('activityList');
-    if (!list) return;
-    
-    const activities = [];
-    
-    // Add workspace activities
-    currentWorkspaces.slice(0, 2).forEach(ws => {
-        activities.push({
-            icon: 'fa-briefcase',
-            color: 'text-blue-400',
-            text: `Created workspace "${ws.name}"`,
-            time: 'Recently'
-        });
-    });
-    
-    // Add project activities
-    currentProjects.slice(0, 3).forEach(p => {
-        activities.push({
-            icon: 'fa-folder',
-            color: 'text-purple-400',
-            text: `Created project "${p.name}"`,
-            time: 'Recently'
-        });
-    });
-    
-    if (activities.length === 0) {
-        list.innerHTML = '<p class="text-gray-500 text-sm text-center py-4">No recent activity</p>';
-        return;
-    }
-    
-    list.innerHTML = activities.slice(0, 5).map(a => `
-        <div class="flex items-start gap-3 p-2 hover:bg-purple-500/10 rounded-lg transition-colors">
-            <div class="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center flex-shrink-0">
-                <i class="fas ${a.icon} ${a.color} text-sm"></i>
-            </div>
-            <div class="flex-1 min-w-0">
-                <p class="text-white text-sm">${a.text}</p>
-                <p class="text-gray-500 text-xs mt-1">${a.time}</p>
-            </div>
-        </div>
-    `).join('');
+    // This function is now replaced by loadRecentActivity
+    loadRecentActivity();
 }
 
 // Update notification badge
@@ -377,9 +562,14 @@ function loadWorkspaces() {
                     <span class="px-3 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-400">${ws.type}</span>
                 </div>
                 <p class="text-gray-400 text-sm mb-4">${ws.current_members || 1} member${(ws.current_members || 1) > 1 ? 's' : ''}</p>
-                <button onclick="inviteToWorkspace('${ws.id}', '${escapedName}')" class="w-full py-2 bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 rounded-lg text-sm font-medium transition-all">
-                    <i class="fas fa-user-plus mr-2"></i>Invite Member
-                </button>
+                <div class="flex gap-2">
+                    <button onclick="inviteToWorkspace('${ws.id}', '${escapedName}')" class="flex-1 py-2 bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 rounded-lg text-sm font-medium transition-all">
+                        <i class="fas fa-user-plus mr-2"></i>Invite Member
+                    </button>
+                    <button onclick="deleteWorkspace('${ws.id}')" class="flex-1 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-sm font-medium transition-all">
+                        <i class="fas fa-trash mr-2"></i>Delete
+                    </button>
+                </div>
             </div>
         `;
     }).join('');
@@ -399,7 +589,6 @@ function loadProjects() {
         const startDate = new Date(p.start_date).toLocaleDateString();
         const endDate = new Date(p.end_date).toLocaleDateString();
         const escapedName = p.name.replace(/'/g, "\\'");
-        
         return `
             <div class="glass-effect rounded-xl p-6 card-hover">
                 <div class="flex items-center justify-between mb-3">
@@ -415,12 +604,61 @@ function loadProjects() {
                     <span><i class="far fa-calendar mr-1"></i>${startDate}</span>
                     <span><i class="far fa-calendar-check mr-1"></i>${endDate}</span>
                 </div>
-                <button onclick="createBoardFromDashboard('${p.id}', '${escapedName}')" class="w-full py-2 bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 rounded-lg text-sm font-medium transition-all">
-                    <i class="fas fa-columns mr-2"></i>Create Board
-                </button>
+                <div class="flex gap-2">
+                    <button onclick="createBoardFromDashboard('${p.id}', '${escapedName}')" class="flex-1 py-2 bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 rounded-lg text-sm font-medium transition-all">
+                        <i class="fas fa-columns mr-2"></i>Create Board
+                    </button>
+                    <button onclick="deleteProject('${p.id}')" class="flex-1 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-sm font-medium transition-all">
+                        <i class="fas fa-trash mr-2"></i>Delete
+                    </button>
+                </div>
             </div>
         `;
     }).join('');
+// Delete workspace
+async function deleteWorkspace(workspaceId) {
+    if (!confirm('Are you sure you want to delete this workspace? This will also delete all its projects and boards.')) return;
+    const token = localStorage.getItem('token');
+    try {
+        const res = await fetch(`${API_BASE}/workspaces/${workspaceId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+            showNotification('Workspace deleted!', 'success');
+            loadData();
+            if (currentPage === 'workspaces') loadWorkspaces();
+        } else {
+            const data = await res.json().catch(() => ({}));
+            showNotification(data.error || 'Failed to delete workspace', 'error');
+        }
+    } catch (err) {
+        showNotification('Network error', 'error');
+    }
+}
+
+// Delete project
+async function deleteProject(projectId) {
+    if (!confirm('Are you sure you want to delete this project? This will also delete all its boards.')) return;
+    const token = localStorage.getItem('token');
+    try {
+        const res = await fetch(`${API_BASE}/projects/${projectId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+            showNotification('Project deleted!', 'success');
+            loadData();
+            if (currentPage === 'projects') loadProjects();
+            updateActiveProjectsList();
+        } else {
+            const data = await res.json().catch(() => ({}));
+            showNotification(data.error || 'Failed to delete project', 'error');
+        }
+    } catch (err) {
+        showNotification('Network error', 'error');
+    }
+}
 }
 
 // Show modal
@@ -673,6 +911,9 @@ function toggleTheme() {
 
 // Init
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('🚀 Dashboard loading...');
+    
+    // Check auth first
     checkAuth();
     
     // Make functions globally accessible
@@ -680,47 +921,170 @@ document.addEventListener('DOMContentLoaded', () => {
     window.closeModal = closeModal;
     window.acceptInvitation = acceptInvitation;
     window.rejectInvitation = rejectInvitation;
+    window.deleteWorkspace = deleteWorkspace;
+    window.deleteProject = deleteProject;
+    window.createBoardFromDashboard = createBoardFromDashboard;
     
+    // Add event listeners with error handling
     setTimeout(() => {
-        document.querySelectorAll('.nav-item').forEach(item => {
-            item.addEventListener('click', (e) => {
-                e.preventDefault();
-                switchPage(item.getAttribute('data-page'));
-            });
-        });
-        
-        const logoutBtn = document.getElementById('logoutBtn');
-        if (logoutBtn) logoutBtn.addEventListener('click', logout);
-        
-        const themeToggle = document.getElementById('themeToggle');
-        if (themeToggle) themeToggle.addEventListener('click', toggleTheme);
-        
-        const createWsBtn = document.getElementById('createWorkspaceBtn');
-        if (createWsBtn) createWsBtn.addEventListener('click', createWorkspace);
-        
-        const createPrBtn = document.getElementById('createProjectBtn');
-        if (createPrBtn) createPrBtn.addEventListener('click', createProject);
-        
-        // Notification bell click
-        const notificationBtn = document.querySelector('.fa-bell').parentElement;
-        if (notificationBtn) {
-            notificationBtn.addEventListener('click', showInvitations);
-        }
-        
-        // Time period buttons
-        const periodButtons = document.querySelectorAll('.glass-effect.rounded-xl.p-1 > button');
-        periodButtons.forEach((btn, index) => {
-            btn.addEventListener('click', () => {
-                periodButtons.forEach(b => {
-                    b.classList.remove('bg-gradient-to-r', 'from-purple-500', 'to-pink-500', 'text-white');
-                    b.classList.add('text-gray-400');
+        try {
+            // Navigation buttons
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    console.log('Nav clicked:', item.getAttribute('data-page'));
+                    switchPage(item.getAttribute('data-page'));
                 });
-                btn.classList.add('bg-gradient-to-r', 'from-purple-500', 'to-pink-500', 'text-white');
-                btn.classList.remove('text-gray-400');
-                
-                const periods = ['Days', 'Weeks', 'Months'];
-                showNotification(`Viewing ${periods[index]} data`, 'info');
             });
-        });
+            
+            // Logout button
+            const logoutBtn = document.getElementById('logoutBtn');
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    console.log('Logout clicked');
+                    logout();
+                });
+            }
+            
+            // Theme toggle
+            const themeToggle = document.getElementById('themeToggle');
+            if (themeToggle) {
+                themeToggle.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    console.log('Theme toggle clicked');
+                    toggleTheme();
+                });
+            }
+            
+            // Create workspace button
+            const createWsBtn = document.getElementById('createWorkspaceBtn');
+            if (createWsBtn) {
+                createWsBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    console.log('Create workspace clicked');
+                    createWorkspace();
+                });
+            }
+            
+            // Create project button
+            const createPrBtn = document.getElementById('createProjectBtn');
+            if (createPrBtn) {
+                createPrBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    console.log('Create project clicked');
+                    createProject();
+                });
+            }
+            
+            // Notification bell click
+            const notificationBtn = document.querySelector('.fa-bell')?.parentElement;
+            if (notificationBtn) {
+                notificationBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    console.log('Notification bell clicked');
+                    showInvitations();
+                });
+            }
+            
+            // Time period buttons
+            const periodButtons = document.querySelectorAll('.glass-effect.rounded-xl.p-1 > button');
+            periodButtons.forEach((btn, index) => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    console.log('Period button clicked:', index);
+                    
+                    periodButtons.forEach(b => {
+                        b.classList.remove('bg-gradient-to-r', 'from-purple-500', 'to-pink-500', 'text-white');
+                        b.classList.add('text-gray-400');
+                    });
+                    btn.classList.add('bg-gradient-to-r', 'from-purple-500', 'to-pink-500', 'text-white');
+                    btn.classList.remove('text-gray-400');
+                    const periods = ['Days', 'Weeks', 'Months'];
+                    showNotification(`Viewing ${periods[index]} data`, 'info');
+                });
+            });
+            
+            console.log('✅ All event listeners attached successfully');
+            
+        } catch (error) {
+            console.error('❌ Error setting up event listeners:', error);
+        }
     }, 500);
 });
+
+// Create board from dashboard
+async function createBoardFromDashboard(projectId, projectName) {
+    const token = localStorage.getItem('token');
+    if (!token) {
+        window.location.href = '/index.html';
+        return;
+    }
+
+    // Show modal to get board name
+    const boardName = prompt(`Create a new board for "${projectName}"`, 'My Board');
+    if (!boardName) return;
+
+    try {
+        // Get project details to get workspace_id
+        const projectRes = await fetch(`${API_BASE}/projects/${projectId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!projectRes.ok) {
+            const err = await projectRes.json();
+            throw new Error(err.error || 'Failed to get project details. Please create a project first.');
+        }
+        const project = await projectRes.json();
+        if (!project.workspace_id) {
+            throw new Error('Project is missing workspace. Please create a workspace and project first.');
+        }
+
+        // Create board
+        const response = await fetch(`${API_BASE}/boards`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                name: boardName,
+                project_id: projectId,
+                workspace_id: project.workspace_id
+            })
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || error.message || 'Failed to create board');
+        }
+        const board = await response.json();
+        showNotification('Board created successfully!', 'success');
+        
+        // Navigate to board
+        window.location.href = `/board.html?id=${board.id}`;
+    } catch (error) {
+        console.error('Error creating board:', error);
+        showNotification(error.message || 'Failed to create board', 'error');
+    }
+}
+
+// Make function globally available
+window.createBoardFromDashboard = createBoardFromDashboard;
+window.loadRecentActivity = loadRecentActivity;
+window.showAllBoards = showAllBoards;
+window.saveSettings = saveSettings;
+
+// Show all boards function
+function showAllBoards() {
+    showNotification('Boards view coming soon!', 'info');
+}
+
+// Save settings function
+function saveSettings() {
+    const name = document.getElementById('settingsName')?.value;
+    if (name && name !== currentUser.name) {
+        currentUser.name = name;
+        localStorage.setItem('user', JSON.stringify(currentUser));
+        document.getElementById('userName').textContent = name;
+        showNotification('Settings saved!', 'success');
+    }
+}

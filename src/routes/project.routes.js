@@ -51,9 +51,19 @@ router.get("/workspace/:workspaceId", async(req, res) => {
 router.get("/:projectId", async(req, res) => {
     try {
         const project = await projectService.getProjectById(req.params.projectId, req.user.id);
-        res.status(200).json({ project });
+        res.status(200).json(project);
     } catch (err) {
         res.status(403).json({ error: err.message });
+    }
+});
+
+// Delete project
+router.delete('/:projectId', async(req, res) => {
+    try {
+        await projectService.deleteProject(req.params.projectId, req.user.id);
+        res.status(200).json({ message: 'Project deleted successfully' });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
     }
 });
 

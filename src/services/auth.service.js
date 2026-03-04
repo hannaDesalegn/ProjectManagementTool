@@ -1,8 +1,8 @@
 // services/auth.service.js
 import prisma from "../config/prisma.js";
 import { hashPassword, comparePassword } from "../utils/hash.js";
-import { generateToken } from "../utils/jwt.js";
-import { logger, log } from "../utils/logger.js";
+import { generateToken } from "../utils/JWT.js";
+import logger from "../utils/logger.js";
 import { sendEmail } from "../utils/email.js";
 import crypto from "crypto";
 
@@ -46,14 +46,14 @@ export const register = async({ email, password, name }) => {
     `,
     });
 
-    return { id: user.id, email: user.email, name: user.name };
+    return { id: user.id, email: user.email, name: user.name, profile_pic: user.profile_pic };
 };
 
 // Login
 export const login = async({ email, password }) => {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
-        log(`Failed login attempt: email not found (${email})`);
+        logger.info(`Failed login attempt: email not found (${email})`);
         throw new Error("Invalid credentials");
     }
 
@@ -64,12 +64,12 @@ export const login = async({ email, password }) => {
 
     const match = await comparePassword(password, user.password_hash);
     if (!match) {
-        log(`Failed login attempt: wrong password for email (${email})`);
+        logger.info(`Failed login attempt: wrong password for email (${email})`);
         throw new Error("Invalid credentials");
     }
 
     const token = generateToken({ id: user.id, email: user.email });
-    return { token, user: { id: user.id, email: user.email, name: user.name } };
+    return { token, user: { id: user.id, email: user.email, name: user.name, profile_pic: user.profile_pic } };
 };
 
 // Request email verification

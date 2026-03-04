@@ -1,34 +1,26 @@
-// utils/logger.js
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
+// Simple logger utility
+const logger = {
+    info: (message, meta = {}) => {
+        const timestamp = new Date().toISOString();
+        console.log(`[${timestamp}] INFO: ${message}`, meta);
+    },
 
-const __filename = fileURLToPath(
-    import.meta.url);
-const __dirname = path.dirname(__filename);
+    warn: (message, meta = {}) => {
+        const timestamp = new Date().toISOString();
+        console.warn(`[${timestamp}] WARN: ${message}`, meta);
+    },
 
-const logFile = path.join(__dirname, "../../logs/app.log");
+    error: (message, error = null) => {
+        const timestamp = new Date().toISOString();
+        console.error(`[${timestamp}] ERROR: ${message}`, error);
+    },
 
-function writeLog(level, message, meta = {}) {
-    const timestamp = new Date().toISOString();
-    const metaStr = Object.keys(meta).length ? ` ${JSON.stringify(meta)}` : '';
-    const entry = `[${timestamp}] [${level}] ${message}${metaStr}\n`;
-
-    // Ensure logs directory exists
-    const logsDir = path.dirname(logFile);
-    if (!fs.existsSync(logsDir)) {
-        fs.mkdirSync(logsDir, { recursive: true });
+    debug: (message, meta = {}) => {
+        if (process.env.NODE_ENV === 'development') {
+            const timestamp = new Date().toISOString();
+            console.log(`[${timestamp}] DEBUG: ${message}`, meta);
+        }
     }
-
-    fs.appendFileSync(logFile, entry, { encoding: "utf8" });
-}
-
-export const logger = {
-    info: (message, meta) => writeLog('INFO', message, meta),
-    warn: (message, meta) => writeLog('WARN', message, meta),
-    error: (message, meta) => writeLog('ERROR', message, meta),
-    debug: (message, meta) => writeLog('DEBUG', message, meta),
-    log: (message) => writeLog('LOG', message)
 };
 
-export const log = logger.log;
+export default logger;

@@ -2,14 +2,24 @@
     "name": "haytask",
     "version": "1.0.0",
     "type": "module",
-    "description": "",
+    "description": "HayTask - Collaborate Smarter, Achieve Faster",
     "main": "index.js",
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1",
         "dev": "nodemon src/server.js",
         "start": "node src/server.js",
+        "quick-start": "node start.js",
+        "test-server": "node test-server.js",
+        "db:reset": "node reset-database.js",
+        "db:delete-users": "node delete-users.js",
         "db:manage": "node manage-users.js",
-        "db:seed": "node seed.js"
+        "db:seed": "node seed.js",
+        "db:optimize": "node scripts/optimize-database.js all",
+        "db:backup": "node scripts/backup-database.js create",
+        "db:restore": "node scripts/backup-database.js restore",
+        "db:list-backups": "node scripts/backup-database.js list",
+        "health": "node scripts/health-check.js",
+        "load-test": "node scripts/load-test.js"
     },
     "repository": {
         "type": "git",
@@ -31,7 +41,8 @@
         "express-validator": "^7.3.1",
         "jsonwebtoken": "^9.0.3",
         "nodemailer": "^8.0.0",
-        "pg": "^8.18.0"
+        "pg": "^8.18.0",
+        "ws": "^8.19.0"
     },
     "devDependencies": {
         "nodemon": "^3.1.11",

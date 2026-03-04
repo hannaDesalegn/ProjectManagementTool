@@ -1,3 +1,19 @@
+export const deleteProject = async(projectId, userId) => {
+    // Only project admin or workspace owner can delete
+    const project = await prisma.project.findUnique({ where: { id: projectId } });
+    if (!project) throw new Error('Project not found');
+    // Check if user is workspace owner
+    const workspace = await prisma.workspace.findUnique({ where: { id: project.workspace_id } });
+    const isOwner = workspace && workspace.owner_id === userId;
+    // Or project admin
+    const membership = await prisma.projectMembership.findFirst({ where: { project_id: projectId, user_id: userId, role: 'ProjectAdmin' } });
+    if (!isOwner && !membership) throw new Error('Only the workspace owner or project admin can delete this project');
+    // Soft delete: set deleted_at
+    await prisma.project.update({ where: { id: projectId }, data: { deleted_at: new Date() } });
+    // Optionally, also soft-delete related boards, etc.
+    await prisma.board.updateMany({ where: { project_id: projectId }, data: { deleted_at: new Date() } });
+    return true;
+};
 import prisma from '../config/prisma.js';
 
 export const getUserProjects = async(userId) => {

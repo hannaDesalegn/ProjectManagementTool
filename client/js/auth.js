@@ -1,5 +1,7 @@
 // Wait for DOM to be ready
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('🔍 Auth.js loaded');
+    
     // DOM Elements
     const loginFormEl = document.getElementById('loginForm');
     const registerFormEl = document.getElementById('registerForm');
@@ -10,11 +12,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Login form submission
     if (loginFormEl) {
+        console.log('✅ Login form found');
         loginFormEl.addEventListener('submit', async(e) => {
             e.preventDefault();
+            console.log('🔐 Login form submitted');
 
             const email = document.getElementById('loginEmail').value;
             const password = document.getElementById('loginPassword').value;
+
+            console.log('Login attempt:', { email, password: '***' });
 
             const loginData = { email, password };
 
@@ -28,42 +34,48 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
 
                 const result = await response.json();
+                console.log('Login response:', response.status, result);
 
                 if (response.ok) {
                     // Store token and user first
                     if (result.token) {
                         localStorage.setItem('token', result.token);
-                        console.log('Token stored:', result.token.substring(0, 20) + '...');
+                        console.log('✅ Token stored:', result.token.substring(0, 20) + '...');
                     }
                     if (result.user) {
                         localStorage.setItem('user', JSON.stringify(result.user));
-                        console.log('User stored:', result.user);
+                        console.log('✅ User stored:', result.user);
                     }
 
                     showNotification('🎉 Login successful! Redirecting...', 'success');
 
                     // Redirect to dashboard immediately
                     setTimeout(() => {
-                        console.log('Redirecting to dashboard...');
+                        console.log('🔄 Redirecting to dashboard...');
                         window.location.href = '/dashboard.html';
                     }, 800);
                 } else {
                     const errorMessage = result.errors ?
                         result.errors.map(err => err.msg).join(', ') :
-                        result.message || 'Login failed';
+                        result.message || result.error || 'Login failed';
+                    console.error('❌ Login failed:', errorMessage);
                     showNotification(errorMessage, 'error');
                 }
             } catch (error) {
-                console.error('Login error:', error);
+                console.error('❌ Login error:', error);
                 showNotification('Network error. Please try again.', 'error');
             }
         });
+    } else {
+        console.log('ℹ️ No login form found on this page');
     }
 
     // Register form submission
     if (registerFormEl) {
+        console.log('✅ Register form found');
         registerFormEl.addEventListener('submit', async(e) => {
             e.preventDefault();
+            console.log('📝 Register form submitted');
 
             const name = document.getElementById('registerName').value;
             const email = document.getElementById('registerEmail').value;
@@ -84,6 +96,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 termsAccepted
             };
 
+            console.log('Registration attempt:', { ...registerData, password: '***' });
+
             try {
                 const response = await fetch(`${API_BASE}/register`, {
                     method: 'POST',
@@ -94,30 +108,42 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
 
                 const result = await response.json();
+                console.log('Registration response:', response.status, result);
 
                 if (response.ok) {
                     showNotification('🎊 Registration successful! Please login.', 'success');
 
                     // Switch to login tab
                     setTimeout(() => {
-                        document.getElementById('loginTab').click();
+                        const loginTab = document.getElementById('loginTab');
+                        if (loginTab) loginTab.click();
                         registerFormEl.reset();
                     }, 2000);
                 } else {
                     const errorMessage = result.errors ?
                         result.errors.map(err => err.msg).join(', ') :
-                        result.message || 'Registration failed';
+                        result.message || result.error || 'Registration failed';
+                    console.error('❌ Registration failed:', errorMessage);
                     showNotification(errorMessage, 'error');
                 }
             } catch (error) {
-                console.error('Registration error:', error);
+                console.error('❌ Registration error:', error);
                 showNotification('Network error. Please try again.', 'error');
             }
         });
+    } else {
+        console.log('ℹ️ No register form found on this page');
     }
 
     // Notification system
     function showNotification(message, type = 'info') {
+        console.log(`📢 Notification: ${type} - ${message}`);
+        
+        if (!notification) {
+            console.warn('⚠️ Notification element not found');
+            return;
+        }
+        
         const colors = {
             'success': 'bg-green-500/20 border-2 border-green-500 text-green-400',
             'error': 'bg-red-500/20 border-2 border-red-500 text-red-400',
@@ -135,8 +161,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Check if user is already logged in
     function checkAuthStatus() {
+        console.log('🔍 Checking auth status...');
+        
         const token = localStorage.getItem('token');
+        const user = localStorage.getItem('user');
+        
+        console.log('Token exists:', !!token);
+        console.log('User exists:', !!user);
+        
         if (token) {
+            console.log('🔐 Token found, verifying...');
             // Verify token is still valid
             fetch(`${API_BASE}/verify`, {
                     headers: {
@@ -144,17 +178,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 })
                 .then(response => {
+                    console.log('Token verification response:', response.status);
                     if (response.ok) {
+                        console.log('✅ Token valid, redirecting to dashboard');
                         window.location.href = '/dashboard.html';
                     } else {
+                        console.log('❌ Token invalid, clearing storage');
                         // Token is invalid, remove it
                         localStorage.removeItem('token');
                         localStorage.removeItem('user');
                     }
                 })
                 .catch(error => {
-                    console.error('Auth check error:', error);
+                    console.error('❌ Auth check error:', error);
                 });
+        } else {
+            console.log('ℹ️ No token found, staying on login page');
         }
     }
 

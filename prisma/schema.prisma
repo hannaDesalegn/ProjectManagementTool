@@ -232,12 +232,13 @@ model ProjectMembership {
 }
 
 model Board {
-  id           String    @id @default(uuid()) @db.Uuid
-  project_id   String    @db.Uuid
-  workspace_id String    @db.Uuid
-  name         String
-  created_at   DateTime  @default(now())
-  deleted_at   DateTime?
+  id               String    @id @default(uuid()) @db.Uuid
+  project_id       String    @db.Uuid
+  workspace_id     String    @db.Uuid
+  name             String
+  background_color String?   // Board background color
+  created_at       DateTime  @default(now())
+  deleted_at       DateTime?
 
   project   Project   @relation(fields: [project_id], references: [id], onDelete: Cascade)
   workspace Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
@@ -275,6 +276,7 @@ model Card {
   position     Float     @default(0) // For ultra-smooth drag-and-drop
   metadata     Json?     // Custom fields (Value, Story Points, etc.)
   labels       Json?     // List of tags/labels
+  color        String?   // Card background color
   due_date     DateTime?
   assigned_to  String?  @db.Uuid
   created_at   DateTime @default(now())

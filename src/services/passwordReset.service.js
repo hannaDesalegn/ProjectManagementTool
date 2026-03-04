@@ -1,9 +1,9 @@
 import prisma from "../config/prisma.js";
-import { generateToken, verifyToken } from "../config/jwt.js";
+import { generateToken, verifyToken } from "../utils/JWT.js";
 import { hashPassword } from "../utils/hash.js";
 
 // Request password reset
-export const requestPasswordReset = async (email) => {
+export const requestPasswordReset = async(email) => {
     if (!email) {
         throw new Error("Email is required");
     }
@@ -40,10 +40,10 @@ export const requestPasswordReset = async (email) => {
 };
 
 // Verify reset token
-export const verifyResetToken = async (token) => {
+export const verifyResetToken = async(token) => {
     try {
         const decoded = verifyToken(token);
-        
+
         if (decoded.type !== 'password_reset') {
             throw new Error("Invalid reset token");
         }
@@ -71,7 +71,7 @@ export const verifyResetToken = async (token) => {
 };
 
 // Reset password with token
-export const resetPassword = async ({ token, newPassword }) => {
+export const resetPassword = async({ token, newPassword }) => {
     if (!token || !newPassword) {
         throw new Error("Token and new password are required");
     }
@@ -92,7 +92,7 @@ export const resetPassword = async ({ token, newPassword }) => {
     // Update user password
     const updatedUser = await prisma.users.update({
         where: { id: tokenVerification.userId },
-        data: { 
+        data: {
             password_hash: hashedPassword
         },
         select: {
@@ -109,7 +109,7 @@ export const resetPassword = async ({ token, newPassword }) => {
 };
 
 // Change password (for authenticated users)
-export const changePassword = async ({ userId, currentPassword, newPassword }) => {
+export const changePassword = async({ userId, currentPassword, newPassword }) => {
     if (!currentPassword || !newPassword) {
         throw new Error("Current password and new password are required");
     }
@@ -128,9 +128,10 @@ export const changePassword = async ({ userId, currentPassword, newPassword }) =
     }
 
     // Verify current password
-    const { comparePassword } = await import("../utils/hash.js");
+    const { comparePassword } = await
+    import ("../utils/hash.js");
     const isCurrentPasswordValid = await comparePassword(currentPassword, user.password_hash);
-    
+
     if (!isCurrentPasswordValid) {
         throw new Error("Current password is incorrect");
     }
@@ -141,7 +142,7 @@ export const changePassword = async ({ userId, currentPassword, newPassword }) =
     // Update password
     const updatedUser = await prisma.users.update({
         where: { id: userId },
-        data: { 
+        data: {
             password_hash: hashedNewPassword
         },
         select: {

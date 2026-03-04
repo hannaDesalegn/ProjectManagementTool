@@ -83,6 +83,16 @@ router.get("/:workspaceId", async(req, res) => {
     }
 });
 
+// Delete workspace
+router.delete('/:workspaceId', async(req, res) => {
+    try {
+        await workspaceService.deleteWorkspace(req.params.workspaceId, req.user.id);
+        res.status(200).json({ message: 'Workspace deleted successfully' });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
 // Invite to workspace
 router.post("/:workspaceId/invite", async(req, res) => {
     try {

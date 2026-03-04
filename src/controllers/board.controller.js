@@ -1,13 +1,13 @@
 import boardService from "../services/board.service.js";
 import listService from "../services/list.service.js";
 import cardService from "../services/card.service.js";
-import { successResponse, errorResponse } from "../utils/response.js";
+import { sendSuccess, sendError, errorResponse } from "../utils/response.js";
 
 class BoardController {
     // Create board
     async createBoard(req, res) {
         try {
-            const { name, project_id, workspace_id } = req.body;
+            const { name, project_id, workspace_id, background_color } = req.body;
             const user_id = req.user.id;
 
             if (!name || !project_id || !workspace_id) {
@@ -19,9 +19,10 @@ class BoardController {
                 project_id,
                 workspace_id,
                 user_id,
+                background_color,
             });
 
-            successResponse(res, board, "Board created successfully", 201);
+            sendSuccess(res, board, "Board created successfully", 201);
         } catch (error) {
             errorResponse(res, error.message, 400);
         }
@@ -34,7 +35,7 @@ class BoardController {
             const user_id = req.user.id;
 
             const board = await boardService.getBoardById(boardId, user_id);
-            successResponse(res, board);
+            sendSuccess(res, board);
         } catch (error) {
             errorResponse(res, error.message, 404);
         }
@@ -144,7 +145,7 @@ class BoardController {
     // Create card
     async createCard(req, res) {
         try {
-            const { title, description, list_id, priority, due_date, assigned_to, labels } = req.body;
+            const { title, description, list_id, priority, due_date, assigned_to, labels, color } = req.body;
             const user_id = req.user.id;
 
             if (!title || !list_id) {
@@ -159,6 +160,7 @@ class BoardController {
                 due_date,
                 assigned_to,
                 labels,
+                color,
                 user_id,
             });
 

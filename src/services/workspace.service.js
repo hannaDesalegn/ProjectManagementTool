@@ -1,3 +1,17 @@
+export const deleteWorkspace = async(workspaceId, userId) => {
+    // Only owner can delete
+    const workspace = await prisma.workspace.findUnique({ where: { id: workspaceId } });
+    if (!workspace) throw new Error('Workspace not found');
+    if (workspace.owner_id !== userId) throw new Error('Only the workspace owner can delete this workspace');
+    // Soft delete: set deleted_at
+    await prisma.workspace.update({ where: { id: workspaceId }, data: { deleted_at: new Date() } });
+    // Optionally, also soft-delete related projects, boards, etc.
+    await prisma.project.updateMany({ where: { workspace_id: workspaceId }, data: { deleted_at: new Date() } });
+    await prisma.board.updateMany({ where: { workspace_id: workspaceId }, data: { deleted_at: new Date() } });
+    // Remove memberships
+    await prisma.membership.deleteMany({ where: { workspace_id: workspaceId } });
+    return true;
+};
 import prisma from '../config/prisma.js';
 
 export const createWorkspace = async(userId, workspaceData) => {

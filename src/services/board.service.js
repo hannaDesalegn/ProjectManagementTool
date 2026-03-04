@@ -1,9 +1,9 @@
 import prisma from "../config/prisma.js";
-import { logger } from "../utils/logger.js";
+import logger from "../utils/logger.js";
 
 class BoardService {
     // Create a new board with default lists
-    async createBoard({ name, project_id, workspace_id, user_id }) {
+    async createBoard({ name, project_id, workspace_id, user_id, background_color }) {
         try {
             // Verify user has access to the workspace
             const membership = await prisma.membership.findFirst({
@@ -37,6 +37,7 @@ class BoardService {
                     name,
                     project_id,
                     workspace_id,
+                    background_color: background_color || '#8b5cf6', // Default purple
                     lists: {
                         create: [
                             { name: "To Do", position: 1 },
@@ -264,7 +265,7 @@ class BoardService {
                 throw new Error("Board not found");
             }
 
-            // Verify access
+            // Verify access - allow any workspace member to delete boards
             const membership = await prisma.membership.findFirst({
                 where: {
                     user_id,
@@ -273,8 +274,13 @@ class BoardService {
                 },
             });
 
-            if (!membership || (membership.role !== "Owner" && membership.role !== "Admin")) {
-                throw new Error("You don't have permission to delete this board");
+            if (!membership) {
+                throw new Error("You don't have access to this workspace");
+            }
+
+            // Only Viewers cannot delete
+            if (membership.role === "Viewer") {
+                throw new Error("Viewers cannot delete boards");
             }
 
             await prisma.board.update({

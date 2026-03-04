@@ -1,9 +1,9 @@
 import prisma from "../config/prisma.js";
-import { logger } from "../utils/logger.js";
+import logger from "../utils/logger.js";
 
 class CardService {
     // Create a new card
-    async createCard({ title, description, list_id, priority, due_date, assigned_to, labels, user_id }) {
+    async createCard({ title, description, list_id, priority, due_date, assigned_to, labels, color, user_id }) {
         try {
             const list = await prisma.list.findFirst({
                 where: {
@@ -52,6 +52,7 @@ class CardService {
                     due_date: due_date ? new Date(due_date) : null,
                     assigned_to,
                     labels: labels || null,
+                    color: color || null,
                 },
                 include: {
                     assignee: {
