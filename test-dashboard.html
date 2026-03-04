@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Test - HayTask</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background: #0a0a0f; color: white; padding: 20px; }
+        .test-section { background: #1a1a2e; padding: 20px; margin: 20px 0; border-radius: 10px; }
+        button { background: #8b5cf6; color: white; padding: 10px 20px; border-radius: 5px; margin: 5px; }
+        button:hover { background: #7c3aed; }
+        .result { background: #0a0a0f; padding: 10px; margin: 10px 0; border-radius: 5px; font-family: monospace; }
+        .success { color: #10b981; }
+        .error { color: #ef4444; }
+    </style>
+</head>
+<body>
+    <h1 style="font-size: 2em; margin-bottom: 20px;">🧪 HayTask Dashboard Test</h1>
+    
+    <div class="test-section">
+        <h2>1. Authentication Check</h2>
+        <button onclick="testAuth()">Test Auth</button>
+        <div id="authResult" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>2. Load Workspaces</h2>
+        <button onclick="testWorkspaces()">Load Workspaces</button>
+        <div id="workspacesResult" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>3. Load Projects</h2>
+        <button onclick="testProjects()">Load Projects</button>
+        <div id="projectsResult" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>4. Load Boards</h2>
+        <input type="text" id="projectIdInput" placeholder="Enter Project ID" style="background: #0a0a0f; padding: 10px; border-radius: 5px; margin-right: 10px;">
+        <button onclick="testBoards()">Load Boards for Project</button>
+        <div id="boardsResult" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>5. Test Invitation</h2>
+        <input type="text" id="workspaceIdInput" placeholder="Workspace ID" style="background: #0a0a0f; padding: 10px; border-radius: 5px; margin-right: 10px;">
+        <input type="email" id="inviteEmailInput" placeholder="Email" style="background: #0a0a0f; padding: 10px; border-radius: 5px; margin-right: 10px;">
+        <select id="inviteRoleInput" style="background: #0a0a0f; padding: 10px; border-radius: 5px; margin-right: 10px;">
+            <option value="Member">Member</option>
+            <option value="Admin">Admin</option>
+            <option value="Owner">Owner</option>
+        </select>
+        <button onclick="testInvite()">Send Invitation</button>
+        <div id="inviteResult" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>6. View Invitations</h2>
+        <button onclick="testViewInvitations()">View My Invitations</button>
+        <div id="viewInvitationsResult" class="result"></div>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+        
+        function getToken() {
+            return localStorage.getItem('token');
+        }
+        
+        function log(elementId, message, isError = false) {
+            const el = document.getElementById(elementId);
+            const className = isError ? 'error' : 'success';
+            el.innerHTML += `<div class="${className}">${message}</div>`;
+        }
+        
+        function clearLog(elementId) {
+            document.getElementById(elementId).innerHTML = '';
+        }
+        
+        async function testAuth() {
+            clearLog('authResult');
+            const token = getToken();
+            
+            if (!token) {
+                log('authResult', '❌ No token found. Please login first.', true);
+                return;
+            }
+            
+            log('authResult', '✅ Token found: ' + token.substring(0, 20) + '...');
+            
+            try {
+                const res = await fetch(`${API_BASE}/auth/verify`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                
+                if (res.ok) {
+                    log('authResult', '✅ Token valid! User: ' + JSON.stringify(data.user));
+                } else {
+                    log('authResult', '❌ Token invalid: ' + data.error, true);
+                }
+            } catch (error) {
+                log('authResult', '❌ Error: ' + error.message, true);
+            }
+        }
+        
+        async function testWorkspaces() {
+            clearLog('workspacesResult');
+            const token = getToken();
+            
+            if (!token) {
+                log('workspacesResult', '❌ No token. Login first.', true);
+                return;
+            }
+            
+            try {
+                const res = await fetch(`${API_BASE}/workspaces`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                
+                log('workspacesResult', 'Response status: ' + res.status);
+                log('workspacesResult', 'Response data: ' + JSON.stringify(data, null, 2));
+                
+                if (res.ok) {
+                    const workspaces = data.workspaces || data || [];
+                    log('workspacesResult', `✅ Found ${workspaces.length} workspaces`);
+                    workspaces.forEach(ws => {
+                        log('workspacesResult', `  - ${ws.name} (${ws.type}) - ID: ${ws.id}`);
+                    });
+                } else {
+                    log('workspacesResult', '❌ Error: ' + data.error, true);
+                }
+            } catch (error) {
+                log('workspacesResult', '❌ Error: ' + error.message, true);
+            }
+        }
+        
+        async function testProjects() {
+            clearLog('projectsResult');
+            const token = getToken();
+            
+            if (!token) {
+                log('projectsResult', '❌ No token. Login first.', true);
+                return;
+            }
+            
+            try {
+                const res = await fetch(`${API_BASE}/projects`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                
+                log('projectsResult', 'Response status: ' + res.status);
+                log('projectsResult', 'Response data: ' + JSON.stringify(data, null, 2));
+                
+                if (res.ok) {
+                    const projects = data.projects || data || [];
+                    log('projectsResult', `✅ Found ${projects.length} projects`);
+                    projects.forEach(p => {
+                        log('projectsResult', `  - ${p.name} - ID: ${p.id}`);
+                    });
+                } else {
+                    log('projectsResult', '❌ Error: ' + data.error, true);
+                }
+            } catch (error) {
+                log('projectsResult', '❌ Error: ' + error.message, true);
+            }
+        }
+        
+        async function testBoards() {
+            clearLog('boardsResult');
+            const token = getToken();
+            const projectId = document.getElementById('projectIdInput').value.trim();
+            
+            if (!token) {
+                log('boardsResult', '❌ No token. Login first.', true);
+                return;
+            }
+            
+            if (!projectId) {
+                log('boardsResult', '❌ Please enter a project ID', true);
+                return;
+            }
+            
+            try {
+                const res = await fetch(`${API_BASE}/boards/project/${projectId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                
+                log('boardsResult', 'Response status: ' + res.status);
+                log('boardsResult', 'Response data: ' + JSON.stringify(data, null, 2));
+                
+                if (res.ok) {
+                    const boards = data.boards || data.data || data || [];
+                    log('boardsResult', `✅ Found ${Array.isArray(boards) ? boards.length : 'N/A'} boards`);
+                    if (Array.isArray(boards)) {
+                        boards.forEach(b => {
+                            log('boardsResult', `  - ${b.name} - ID: ${b.id}`);
+                        });
+                    }
+                } else {
+                    log('boardsResult', '❌ Error: ' + data.error, true);
+                }
+            } catch (error) {
+                log('boardsResult', '❌ Error: ' + error.message, true);
+            }
+        }
+        
+        async function testInvite() {
+            clearLog('inviteResult');
+            const token = getToken();
+            const workspaceId = document.getElementById('workspaceIdInput').value.trim();
+            const email = document.getElementById('inviteEmailInput').value.trim();
+            const role = document.getElementById('inviteRoleInput').value;
+            
+            if (!token) {
+                log('inviteResult', '❌ No token. Login first.', true);
+                return;
+            }
+            
+            if (!workspaceId || !email) {
+                log('inviteResult', '❌ Please enter workspace ID and email', true);
+                return;
+            }
+            
+            log('inviteResult', `Sending invitation to ${email} as ${role}...`);
+            
+            try {
+                const res = await fetch(`${API_BASE}/workspaces/${workspaceId}/invite`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, role })
+                });
+                const data = await res.json();
+                
+                log('inviteResult', 'Response status: ' + res.status);
+                log('inviteResult', 'Response data: ' + JSON.stringify(data, null, 2));
+                
+                if (res.ok) {
+                    log('inviteResult', '✅ Invitation sent successfully!');
+                } else {
+                    log('inviteResult', '❌ Error: ' + data.error, true);
+                }
+            } catch (error) {
+                log('inviteResult', '❌ Error: ' + error.message, true);
+            }
+        }
+        
+        async function testViewInvitations() {
+            clearLog('viewInvitationsResult');
+            const token = getToken();
+            
+            if (!token) {
+                log('viewInvitationsResult', '❌ No token. Login first.', true);
+                return;
+            }
+            
+            try {
+                const res = await fetch(`${API_BASE}/workspaces/invitations/pending`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                
+                log('viewInvitationsResult', 'Response status: ' + res.status);
+                log('viewInvitationsResult', 'Response data: ' + JSON.stringify(data, null, 2));
+                
+                if (res.ok) {
+                    const invitations = data.invitations || data || [];
+                    log('viewInvitationsResult', `✅ Found ${invitations.length} invitations`);
+                    invitations.forEach(inv => {
+                        log('viewInvitationsResult', `  - ${inv.workspace?.name || 'Unknown'} (${inv.role}) - ${inv.email}`);
+                    });
+                } else {
+                    log('viewInvitationsResult', '❌ Error: ' + data.error, true);
+                }
+            } catch (error) {
+                log('viewInvitationsResult', '❌ Error: ' + error.message, true);
+            }
+        }
+        
+        // Auto-test auth on load
+        window.addEventListener('DOMContentLoaded', () => {
+            testAuth();
+        });
+    </script>
+</body>
+</html>

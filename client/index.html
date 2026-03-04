@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HayTask - Collaborate Smarter, Achieve Faster</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#8b5cf6',
+                        secondary: '#ec4899',
+                        dark: {
+                            bg: '#0a0a0f',
+                            card: '#1a1a2e',
+                            border: '#2d2d44'
+                        }
+                    },
+                    animation: {
+                        'float': 'float 6s ease-in-out infinite',
+                        'slide-up': 'slideUp 0.5s ease-out',
+                        'fade-in': 'fadeIn 0.8s ease-out',
+                        'scale-in': 'scaleIn 0.5s ease-out'
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': {
+                                transform: 'translateY(0px)'
+                            },
+                            '50%': {
+                                transform: 'translateY(-20px)'
+                            }
+                        },
+                        slideUp: {
+                            '0%': {
+                                transform: 'translateY(100px)',
+                                opacity: '0'
+                            },
+                            '100%': {
+                                transform: 'translateY(0)',
+                                opacity: '1'
+                            }
+                        },
+                        fadeIn: {
+                            '0%': {
+                                opacity: '0'
+                            },
+                            '100%': {
+                                opacity: '1'
+                            }
+                        },
+                        scaleIn: {
+                            '0%': {
+                                transform: 'scale(0.9)',
+                                opacity: '0'
+                            },
+                            '100%': {
+                                transform: 'scale(1)',
+                                opacity: '1'
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+        * {
+            font-family: 'Poppins', sans-serif;
+        }
+        
+        h1,
+        h2,
+        h3,
+        h4,
+        h5,
+        h6 {
+            font-family: 'Space Grotesk', sans-serif;
+        }
+        
+        body {
+            background: #0a0a0f;
+            overflow-x: hidden;
+        }
+        
+        .gradient-text {
+            background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .glass-effect {
+            background: rgba(26, 26, 46, 0.6);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(139, 92, 246, 0.1);
+        }
+        
+        .glow-effect {
+            box-shadow: 0 0 40px rgba(139, 92, 246, 0.3);
+        }
+        
+        .input-glow:focus {
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.3);
+        }
+        
+        .illustration-card {
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(236, 72, 153, 0.1) 100%);
+            border: 1px solid rgba(139, 92, 246, 0.2);
+        }
+        
+        .floating-shape {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(60px);
+            opacity: 0.3;
+            animation: float 8s ease-in-out infinite;
+        }
+        
+        .btn-tab {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .btn-tab::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+        
+        .btn-tab:hover::before {
+            left: 100%;
+        }
+        
+        .feature-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-8px) scale(1.02);
+        }
+    </style>
+</head>
+
+<body class="min-h-screen relative">
+
+    <!-- Floating Background Shapes -->
+    <div class="floating-shape w-96 h-96 bg-purple-500 top-0 -left-48" style="animation-delay: 0s;"></div>
+    <div class="floating-shape w-96 h-96 bg-pink-500 bottom-0 -right-48" style="animation-delay: 2s;"></div>
+    <div class="floating-shape w-64 h-64 bg-blue-500 top-1/2 left-1/2" style="animation-delay: 4s;"></div>
+
+    <!-- Main Container -->
+    <div class="relative z-10 min-h-screen flex items-center justify-center p-4 md:p-8">
+        <div class="w-full max-w-7xl">
+
+            <!-- Logo -->
+            <div class="text-center mb-6 md:mb-8 animate-fade-in">
+                <div class="inline-flex items-center gap-2 md:gap-3 mb-3 md:mb-4">
+                    <div class="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center glow-effect">
+                        <span class="text-white font-bold text-xl md:text-2xl">H</span>
+                    </div>
+                    <h1 class="text-3xl md:text-4xl font-bold text-white">HayTask</h1>
+                </div>
+                <p class="text-gray-400 text-base md:text-lg">Collaborate Smarter, Achieve Faster</p>
+            </div>
+
+            <!-- Main Content -->
+            <div class="grid lg:grid-cols-2 gap-6 lg:gap-8 items-stretch">
+
+                <!-- Left Side - Illustration & Features -->
+                <div class="hidden lg:flex flex-col justify-center space-y-6 animate-slide-up min-h-[700px]">
+
+                    <!-- Hero Illustration -->
+                    <div class="illustration-card rounded-3xl p-8 relative overflow-hidden">
+                        <div class="relative z-10">
+                            <img src="https://illustrations.popsy.co/purple/remote-work.svg" alt="Team Collaboration" class="w-full h-64 object-contain mb-6 animate-float">
+                            <h3 class="text-2xl font-bold text-white mb-3">Work Together, Anywhere</h3>
+                            <p class="text-gray-400">Seamless collaboration with your team in real-time. Manage projects, track progress, and achieve goals together.</p>
+                        </div>
+                        <div class="absolute top-0 right-0 w-64 h-64 bg-purple-500 rounded-full filter blur-3xl opacity-20"></div>
+                    </div>
+
+                    <!-- Features Grid -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="glass-effect rounded-2xl p-6 feature-card">
+                            <div class="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center mb-4">
+                                <i class="fas fa-users text-purple-400 text-xl"></i>
+                            </div>
+                            <h4 class="text-white font-semibold mb-2">Team Collaboration</h4>
+                            <p class="text-gray-400 text-sm">Work together seamlessly</p>
+                        </div>
+
+                        <div class="glass-effect rounded-2xl p-6 feature-card">
+                            <div class="w-12 h-12 rounded-xl bg-pink-500/20 flex items-center justify-center mb-4">
+                                <i class="fas fa-chart-line text-pink-400 text-xl"></i>
+                            </div>
+                            <h4 class="text-white font-semibold mb-2">Track Progress</h4>
+                            <p class="text-gray-400 text-sm">Monitor your success</p>
+                        </div>
+
+                        <div class="glass-effect rounded-2xl p-6 feature-card">
+                            <div class="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center mb-4">
+                                <i class="fas fa-clock text-blue-400 text-xl"></i>
+                            </div>
+                            <h4 class="text-white font-semibold mb-2">Time Management</h4>
+                            <p class="text-gray-400 text-sm">Stay on schedule</p>
+                        </div>
+
+                        <div class="glass-effect rounded-2xl p-6 feature-card">
+                            <div class="w-12 h-12 rounded-xl bg-green-500/20 flex items-center justify-center mb-4">
+                                <i class="fas fa-shield-alt text-green-400 text-xl"></i>
+                            </div>
+                            <h4 class="text-white font-semibold mb-2">Secure & Private</h4>
+                            <p class="text-gray-400 text-sm">Your data is safe</p>
+                        </div>
+                    </div>
+
+                    <!-- Stats -->
+                    <div class="flex items-center justify-around glass-effect rounded-2xl p-6">
+                        <div class="text-center">
+                            <div class="text-3xl font-bold gradient-text mb-1">10K+</div>
+                            <div class="text-gray-400 text-sm">Active Users</div>
+                        </div>
+                        <div class="w-px h-12 bg-gray-700"></div>
+                        <div class="text-center">
+                            <div class="text-3xl font-bold gradient-text mb-1">50K+</div>
+                            <div class="text-gray-400 text-sm">Projects</div>
+                        </div>
+                        <div class="w-px h-12 bg-gray-700"></div>
+                        <div class="text-center">
+                            <div class="text-3xl font-bold gradient-text mb-1">99.9%</div>
+                            <div class="text-gray-400 text-sm">Uptime</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Side - Auth Forms -->
+                <div class="flex items-start justify-center animate-scale-in min-h-[700px]">
+                    <div class="glass-effect rounded-2xl md:rounded-3xl p-6 md:p-8 lg:p-10 glow-effect w-full max-w-md">
+
+                        <!-- Tab Switcher -->
+                        <div class="flex gap-2 mb-8 bg-[#0a0a0f] rounded-xl p-1">
+                            <button type="button" id="loginTab" class="btn-tab flex-1 py-3 rounded-lg font-semibold transition-all duration-300 bg-gradient-to-r from-purple-500 to-pink-500 text-white">
+                                Sign In
+                            </button>
+                            <button type="button" id="registerTab" class="btn-tab flex-1 py-3 rounded-lg font-semibold transition-all duration-300 text-gray-400 hover:text-white">
+                                Sign Up
+                            </button>
+                        </div>
+
+                        <!-- Login Form -->
+                        <form id="loginForm" class="space-y-4 md:space-y-6 min-h-[500px]">
+                            <div>
+                                <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">Welcome Back!</h2>
+                                <p class="text-sm md:text-base text-gray-400">Sign in to continue your journey</p>
+                            </div>
+
+                            <div>
+                                <label class="block text-gray-300 text-sm font-medium mb-2">Email Address</label>
+                                <div class="relative">
+                                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                        <i class="fas fa-envelope text-gray-500"></i>
+                                    </div>
+                                    <input type="email" id="loginEmail" required class="w-full pl-12 pr-4 py-3 bg-[#0a0a0f] border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none input-glow transition-all" placeholder="you@example.com">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-gray-300 text-sm font-medium mb-2">Password</label>
+                                <div class="relative">
+                                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                        <i class="fas fa-lock text-gray-500"></i>
+                                    </div>
+                                    <input type="password" id="loginPassword" required class="w-full pl-12 pr-12 py-3 bg-[#0a0a0f] border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none input-glow transition-all" placeholder="••••••••">
+                                    <button type="button" onclick="togglePassword('loginPassword')" class="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-500 hover:text-gray-300">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center justify-between">
+                                <label class="flex items-center">
+                                    <input type="checkbox" class="w-4 h-4 rounded border-gray-700 bg-[#0a0a0f] text-purple-500 focus:ring-purple-500">
+                                    <span class="ml-2 text-sm text-gray-400">Remember me</span>
+                                </label>
+                                <a href="#" class="text-sm text-purple-400 hover:text-purple-300">Forgot password?</a>
+                            </div>
+
+                            <button type="submit" class="w-full py-3 md:py-4 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white text-sm md:text-base font-semibold rounded-xl transition-all duration-300 transform hover:scale-105 glow-effect">
+                                Sign In
+                            </button>
+
+                            <div class="relative">
+                                <div class="absolute inset-0 flex items-center">
+                                    <div class="w-full border-t border-gray-700"></div>
+                                </div>
+                                <div class="relative flex justify-center text-sm">
+                                    <span class="px-4 bg-[#1a1a2e] text-gray-400">Or continue with</span>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <button type="button" class="flex items-center justify-center gap-2 py-3 bg-[#0a0a0f] border border-gray-700 rounded-xl text-gray-300 hover:bg-gray-800 transition-all">
+                                    <i class="fab fa-google"></i>
+                                    <span>Google</span>
+                                </button>
+                                <button type="button" class="flex items-center justify-center gap-2 py-3 bg-[#0a0a0f] border border-gray-700 rounded-xl text-gray-300 hover:bg-gray-800 transition-all">
+                                    <i class="fab fa-github"></i>
+                                    <span>GitHub</span>
+                                </button>
+                            </div>
+                        </form>
+
+                        <!-- Register Form -->
+                        <form id="registerForm" class="space-y-4 md:space-y-6 min-h-[500px] hidden">
+                            <div>
+                                <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">Create Account</h2>
+                                <p class="text-sm md:text-base text-gray-400">Sign up and get 30 day free trial</p>
+                            </div>
+
+                            <div>
+                                <label class="block text-gray-300 text-sm font-medium mb-2">Full Name</label>
+                                <div class="relative">
+                                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                        <i class="fas fa-user text-gray-500"></i>
+                                    </div>
+                                    <input type="text" id="registerName" required class="w-full pl-12 pr-4 py-3 bg-[#0a0a0f] border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none input-glow transition-all" placeholder="John Doe">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-gray-300 text-sm font-medium mb-2">Email Address</label>
+                                <div class="relative">
+                                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                        <i class="fas fa-envelope text-gray-500"></i>
+                                    </div>
+                                    <input type="email" id="registerEmail" required class="w-full pl-12 pr-4 py-3 bg-[#0a0a0f] border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none input-glow transition-all" placeholder="you@example.com">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-gray-300 text-sm font-medium mb-2">Password</label>
+                                <div class="relative">
+                                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                        <i class="fas fa-lock text-gray-500"></i>
+                                    </div>
+                                    <input type="password" id="registerPassword" required class="w-full pl-12 pr-12 py-3 bg-[#0a0a0f] border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none input-glow transition-all" placeholder="••••••••">
+                                    <button type="button" onclick="togglePassword('registerPassword')" class="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-500 hover:text-gray-300">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                                <p class="mt-2 text-xs text-gray-500">Must be at least 6 characters with uppercase and number</p>
+                            </div>
+
+                            <div>
+                                <label class="block text-gray-300 text-sm font-medium mb-2">Phone Number (Optional)</label>
+                                <div class="relative">
+                                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                        <i class="fas fa-phone text-gray-500"></i>
+                                    </div>
+                                    <input type="tel" id="registerPhone" class="w-full pl-12 pr-4 py-3 bg-[#0a0a0f] border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none input-glow transition-all" placeholder="+1 (555) 000-0000">
+                                </div>
+                            </div>
+
+                            <div class="flex items-start">
+                                <input type="checkbox" id="registerTerms" required class="w-4 h-4 mt-1 rounded border-gray-700 bg-[#0a0a0f] text-purple-500 focus:ring-purple-500">
+                                <label for="registerTerms" class="ml-2 text-sm text-gray-400">
+                                    I agree to the <a href="#" class="text-purple-400 hover:text-purple-300">Terms of Service</a> and <a href="#" class="text-purple-400 hover:text-purple-300">Privacy Policy</a>
+                                </label>
+                            </div>
+
+                            <button type="submit" class="w-full py-3 md:py-4 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white text-sm md:text-base font-semibold rounded-xl transition-all duration-300 transform hover:scale-105 glow-effect">
+                                Create Account
+                            </button>
+
+                            <div class="relative">
+                                <div class="absolute inset-0 flex items-center">
+                                    <div class="w-full border-t border-gray-700"></div>
+                                </div>
+                                <div class="relative flex justify-center text-sm">
+                                    <span class="px-4 bg-[#1a1a2e] text-gray-400">Or sign up with</span>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <button type="button" class="flex items-center justify-center gap-2 py-3 bg-[#0a0a0f] border border-gray-700 rounded-xl text-gray-300 hover:bg-gray-800 transition-all">
+                                    <i class="fab fa-google"></i>
+                                    <span>Google</span>
+                                </button>
+                                <button type="button" class="flex items-center justify-center gap-2 py-3 bg-[#0a0a0f] border border-gray-700 rounded-xl text-gray-300 hover:bg-gray-800 transition-all">
+                                    <i class="fab fa-github"></i>
+                                    <span>GitHub</span>
+                                </button>
+                            </div>
+                        </form>
+
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Footer -->
+            <div class="mt-8 md:mt-12 animate-fade-in">
+                <div class="glass-effect rounded-2xl p-6 md:p-8">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 mb-6">
+                        <!-- About -->
+                        <div>
+                            <h3 class="text-white text-base md:text-lg font-bold mb-3 md:mb-4 flex items-center gap-2">
+                                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                                    <span class="text-white font-bold text-sm">H</span>
+                                </div>
+                                HayTask
+                            </h3>
+                            <p class="text-gray-400 text-sm">Empowering teams to collaborate smarter and achieve faster with innovative project management solutions.</p>
+                        </div>
+
+                        <!-- Quick Links -->
+                        <div>
+                            <h4 class="text-white text-sm md:text-base font-semibold mb-3 md:mb-4">Quick Links</h4>
+                            <ul class="space-y-2 text-sm">
+                                <li><a href="#about" onclick="showAbout(event)" class="text-gray-400 hover:text-purple-400 transition-colors cursor-pointer">About Us</a></li>
+                                <li><a href="#features" onclick="showFeatures(event)" class="text-gray-400 hover:text-purple-400 transition-colors cursor-pointer">Features</a></li>
+                                <li><a href="#privacy" onclick="showPrivacy(event)" class="text-gray-400 hover:text-purple-400 transition-colors cursor-pointer">Privacy Policy</a></li>
+                                <li><a href="#terms" onclick="showTerms(event)" class="text-gray-400 hover:text-purple-400 transition-colors cursor-pointer">Terms of Service</a></li>
+                            </ul>
+                        </div>
+
+                        <!-- Contact -->
+                        <div>
+                            <h4 class="text-white text-sm md:text-base font-semibold mb-3 md:mb-4">Contact Us</h4>
+                            <ul class="space-y-3 text-sm">
+                                <li class="flex items-start gap-2">
+                                    <i class="fas fa-user text-purple-400 mt-1"></i>
+                                    <div>
+                                        <p class="text-white font-medium">Yordanos Tesfaye</p>
+                                        <a href="tel:+251922786645" class="text-gray-400 hover:text-purple-400 transition-colors">+251 922 786 645</a>
+                                    </div>
+                                </li>
+                                <li class="flex items-start gap-2">
+                                    <i class="fas fa-user text-pink-400 mt-1"></i>
+                                    <div>
+                                        <p class="text-white font-medium">Hanna Desalegn</p>
+                                        <a href="tel:+251912679116" class="text-gray-400 hover:text-purple-400 transition-colors">+251 912 679 116</a>
+                                    </div>
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <i class="fas fa-envelope text-blue-400"></i>
+                                    <a href="mailto:support@haytask.com" class="text-gray-400 hover:text-purple-400 transition-colors">support@haytask.com</a>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Social Links -->
+                    <div class="flex items-center justify-center gap-4 pt-6 border-t border-gray-700">
+                        <a href="#" class="w-10 h-10 rounded-lg bg-[#0a0a0f] border border-gray-700 flex items-center justify-center text-gray-400 hover:text-white hover:border-purple-500 transition-all">
+                            <i class="fab fa-twitter"></i>
+                        </a>
+                        <a href="#" class="w-10 h-10 rounded-lg bg-[#0a0a0f] border border-gray-700 flex items-center justify-center text-gray-400 hover:text-white hover:border-purple-500 transition-all">
+                            <i class="fab fa-linkedin"></i>
+                        </a>
+                        <a href="#" class="w-10 h-10 rounded-lg bg-[#0a0a0f] border border-gray-700 flex items-center justify-center text-gray-400 hover:text-white hover:border-purple-500 transition-all">
+                            <i class="fab fa-github"></i>
+                        </a>
+                        <a href="#" class="w-10 h-10 rounded-lg bg-[#0a0a0f] border border-gray-700 flex items-center justify-center text-gray-400 hover:text-white hover:border-purple-500 transition-all">
+                            <i class="fab fa-instagram"></i>
+                        </a>
+                    </div>
+
+                    <!-- Copyright -->
+                    <div class="text-center mt-4 md:mt-6 pt-4 md:pt-6 border-t border-gray-700">
+                        <p class="text-gray-500 text-xs md:text-sm">© 2026 HayTask. All rights reserved. Built with ❤️ by Yordanos & Hanna</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Notification -->
+    <div id="notification" class="fixed top-4 right-4 z-50 transform translate-x-full transition-transform duration-300"></div>
+
+    <!-- Info Modal -->
+    <div id="infoModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="glass-effect rounded-3xl w-full max-w-2xl max-h-[80vh] overflow-y-auto animate-scale-in">
+            <div class="sticky top-0 bg-[#1a1a2e]/95 backdrop-blur-sm px-6 py-4 border-b border-gray-700 flex items-center justify-between rounded-t-3xl">
+                <h3 id="modalTitle" class="text-2xl font-bold text-white"></h3>
+                <button onclick="closeInfoModal()" class="p-2 hover:bg-gray-800 rounded-lg transition-colors">
+                    <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div id="modalContent" class="p-6 text-gray-300"></div>
+        </div>
+    </div>
+
+    <script>
+        // Tab Switching - Must be before auth.js to avoid conflicts
+        document.addEventListener('DOMContentLoaded', () => {
+            const loginTab = document.getElementById('loginTab');
+            const registerTab = document.getElementById('registerTab');
+            const loginFormEl = document.getElementById('loginForm');
+            const registerFormEl = document.getElementById('registerForm');
+
+            loginTab.addEventListener('click', (e) => {
+                e.preventDefault();
+                loginTab.classList.add('bg-gradient-to-r', 'from-purple-500', 'to-pink-500', 'text-white');
+                loginTab.classList.remove('text-gray-400');
+                registerTab.classList.remove('bg-gradient-to-r', 'from-purple-500', 'to-pink-500', 'text-white');
+                registerTab.classList.add('text-gray-400');
+                loginFormEl.classList.remove('hidden');
+                registerFormEl.classList.add('hidden');
+            });
+
+            registerTab.addEventListener('click', (e) => {
+                e.preventDefault();
+                registerTab.classList.add('bg-gradient-to-r', 'from-purple-500', 'to-pink-500', 'text-white');
+                registerTab.classList.remove('text-gray-400');
+                loginTab.classList.remove('bg-gradient-to-r', 'from-purple-500', 'to-pink-500', 'text-white');
+                loginTab.classList.add('text-gray-400');
+                registerFormEl.classList.remove('hidden');
+                loginFormEl.classList.add('hidden');
+            });
+        });
+
+        // Toggle Password Visibility
+        function togglePassword(inputId) {
+            const input = document.getElementById(inputId);
+            const icon = event.currentTarget.querySelector('i');
+
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }
+    </script>
+
+    <!-- Load auth.js after tab switching is set up -->
+    <script src="js/auth.js"></script>
+
+    <script>
+        // Info Modal Functions
+        function showAbout(e) {
+            e.preventDefault();
+            document.getElementById('modalTitle').textContent = 'About HayTask';
+            document.getElementById('modalContent').innerHTML = `
+                <div class="space-y-4">
+                    <p class="text-lg">HayTask is a cutting-edge project management platform designed to help teams collaborate smarter and achieve faster.</p>
+                    <h4 class="text-xl font-bold text-white mt-6">Our Mission</h4>
+                    <p>To empower teams worldwide with intuitive tools that streamline workflows, enhance productivity, and foster seamless collaboration.</p>
+                    <h4 class="text-xl font-bold text-white mt-6">Our Team</h4>
+                    <div class="grid md:grid-cols-2 gap-4 mt-4">
+                        <div class="bg-[#0a0a0f] rounded-xl p-4">
+                            <h5 class="text-white font-semibold">Yordanos Tesfaye</h5>
+                            <p class="text-sm text-gray-400">Co-Founder & Authentication mainly + The whole backend</p>
+                            <p class="text-sm text-purple-400 mt-2">+251 922 786 645</p>
+                        </div>
+                        <div class="bg-[#0a0a0f] rounded-xl p-4">
+                            <h5 class="text-white font-semibold">Hanna Desalegn</h5>
+                            <p class="text-sm text-gray-400">Co-Founder & Database managment mainly + The whole backend</p>
+                            <p class="text-sm text-purple-400 mt-2">+251 912 679 116</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('infoModal').classList.remove('hidden');
+            document.getElementById('infoModal').classList.add('flex');
+        }
+
+        function showFeatures(e) {
+            e.preventDefault();
+            document.getElementById('modalTitle').textContent = 'Features';
+            document.getElementById('modalContent').innerHTML = `
+                <div class="space-y-6">
+                    <div class="flex gap-4">
+                        <div class="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-users text-purple-400 text-xl"></i>
+                        </div>
+                        <div>
+                            <h4 class="text-white font-semibold mb-2">Team Collaboration</h4>
+                            <p class="text-sm">Real-time collaboration with your team members. Share files, communicate instantly, and work together seamlessly.</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-4">
+                        <div class="w-12 h-12 rounded-xl bg-pink-500/20 flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-tasks text-pink-400 text-xl"></i>
+                        </div>
+                        <div>
+                            <h4 class="text-white font-semibold mb-2">Task Management</h4>
+                            <p class="text-sm">Create, assign, and track tasks with ease. Set priorities, deadlines, and monitor progress in real-time.</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-4">
+                        <div class="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-chart-line text-blue-400 text-xl"></i>
+                        </div>
+                        <div>
+                            <h4 class="text-white font-semibold mb-2">Analytics & Reporting</h4>
+                            <p class="text-sm">Comprehensive analytics to track team performance, project progress, and productivity metrics.</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-4">
+                        <div class="w-12 h-12 rounded-xl bg-green-500/20 flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-shield-alt text-green-400 text-xl"></i>
+                        </div>
+                        <div>
+                            <h4 class="text-white font-semibold mb-2">Enterprise Security</h4>
+                            <p class="text-sm">Bank-level encryption, JWT authentication, and role-based access control to keep your data secure.</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('infoModal').classList.remove('hidden');
+            document.getElementById('infoModal').classList.add('flex');
+        }
+
+        function showPrivacy(e) {
+            e.preventDefault();
+            document.getElementById('modalTitle').textContent = 'Privacy Policy';
+            document.getElementById('modalContent').innerHTML = `
+                <div class="space-y-4">
+                    <p class="text-sm text-gray-400">Last updated: February 2026</p>
+                    <h4 class="text-xl font-bold text-white">Information We Collect</h4>
+                    <p>We collect information you provide directly to us, including name, email address, and phone number when you create an account.</p>
+                    <h4 class="text-xl font-bold text-white mt-6">How We Use Your Information</h4>
+                    <ul class="list-disc list-inside space-y-2">
+                        <li>To provide and maintain our services</li>
+                        <li>To notify you about changes to our service</li>
+                        <li>To provide customer support</li>
+                        <li>To gather analysis to improve our service</li>
+                    </ul>
+                    <h4 class="text-xl font-bold text-white mt-6">Data Security</h4>
+                    <p>We use industry-standard encryption and security measures to protect your personal information. Your data is stored securely and never shared with third parties without your consent.</p>
+                    <h4 class="text-xl font-bold text-white mt-6">Your Rights</h4>
+                    <p>You have the right to access, update, or delete your personal information at any time through your account settings.</p>
+                </div>
+            `;
+            document.getElementById('infoModal').classList.remove('hidden');
+            document.getElementById('infoModal').classList.add('flex');
+        }
+
+        function showTerms(e) {
+            e.preventDefault();
+            document.getElementById('modalTitle').textContent = 'Terms of Service';
+            document.getElementById('modalContent').innerHTML = `
+                <div class="space-y-4">
+                    <p class="text-sm text-gray-400">Last updated: February 2026</p>
+                    <h4 class="text-xl font-bold text-white">Acceptance of Terms</h4>
+                    <p>By accessing and using HayTask, you accept and agree to be bound by the terms and provision of this agreement.</p>
+                    <h4 class="text-xl font-bold text-white mt-6">Use License</h4>
+                    <p>Permission is granted to temporarily use HayTask for personal or commercial purposes. This is the grant of a license, not a transfer of title.</p>
+                    <h4 class="text-xl font-bold text-white mt-6">User Responsibilities</h4>
+                    <ul class="list-disc list-inside space-y-2">
+                        <li>Maintain the security of your account credentials</li>
+                        <li>Use the service in compliance with all applicable laws</li>
+                        <li>Not attempt to gain unauthorized access to the service</li>
+                        <li>Not use the service for any illegal or unauthorized purpose</li>
+                    </ul>
+                    <h4 class="text-xl font-bold text-white mt-6">Limitation of Liability</h4>
+                    <p>HayTask shall not be liable for any indirect, incidental, special, consequential or punitive damages resulting from your use of the service.</p>
+                </div>
+            `;
+            document.getElementById('infoModal').classList.remove('hidden');
+            document.getElementById('infoModal').classList.add('flex');
+        }
+
+        function closeInfoModal() {
+            document.getElementById('infoModal').classList.add('hidden');
+            document.getElementById('infoModal').classList.remove('flex');
+        }
+
+        // Close modal on outside click
+        document.getElementById('infoModal').addEventListener('click', (e) => {
+            if (e.target.id === 'infoModal') {
+                closeInfoModal();
+            }
+        });
+    </script>
+</body>
+
+</html>

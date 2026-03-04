@@ -1,3 +1,4 @@
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -57,6 +58,13 @@ enum ProjectRole {
   Viewer
 }
 
+enum CardPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
 enum AuditTargetType {
   Workspace
   Team
@@ -71,26 +79,30 @@ enum AuditTargetType {
 }
 
 model User {
-  id                    String   @id @default(uuid()) @db.Uuid
-  name                  String
-  email                 String   @unique
-  password_hash         String
-  profile_pic           String?
-  is_system_admin       Boolean  @default(false)
-  isVerified            Boolean  @default(false)
-  verificationToken     String?
-  passwordResetToken    String?
-  passwordResetExpires  DateTime?
-  created_at            DateTime @default(now())
-  deleted_at            DateTime?
-
-  owned_workspace    Workspace[]       @relation("WorkspaceOwner")
-  membership          Membership[]
-  assigned_card       Card[]            @relation("UserAssignedCard")
-  team_membership     TeamMembership[]
-  project_membership  ProjectMembership[]
-  activity_log        ActivityLog[]
+  id              String   @id @default(uuid()) @db.Uuid
+  name            String
+  email           String   @unique
+  password_hash   String
+  profile_pic     String?
+  is_system_admin Boolean  @default(false)
   
+  // Auth Fields
+  isVerified           Boolean   @default(false)
+  verificationToken    String?   @unique
+  passwordResetToken   String?   @unique
+  passwordResetExpires DateTime?
+  
+  created_at      DateTime @default(now())
+  deleted_at      DateTime?
+
+  owned_workspace    Workspace[]        @relation("WorkspaceOwner")
+  memberships         Membership[]
+  assigned_cards      Card[]             @relation("UserAssignedCards")
+  team_memberships   TeamMembership[]
+  project_memberships ProjectMembership[]
+  activity_logs       ActivityLog[]
+  comments            Comment[]
+  reactions           Reaction[]
 }
 
 model Workspace {
@@ -101,10 +113,10 @@ model Workspace {
   verified            Boolean            @default(false)
   plan                WorkspacePlan      @default(FREE)
   member_limit        Int                @default(15)
-  current_member      Int                @default(1)
+  current_members     Int                @default(1)
   verification_status VerificationStatus @default(PENDING)
   verified_at         DateTime?
-  verification_note   String?
+  verification_notes  String?
   org_domain          String?
   legal_name          String?
   registration_id     String?
@@ -113,12 +125,18 @@ model Workspace {
   deleted_at          DateTime?
 
   owner          User          @relation("WorkspaceOwner", fields: [owner_id], references: [id], onDelete: Cascade)
-  membership    Membership[]
-  team          Team[]
-  project       Project[]
-  board         Board[]
-  card          Card[]
-  activity_log  ActivityLog[]
+  memberships    Membership[]
+  teams          Team[]
+  projects       Project[]
+  boards         Board[]
+  cards          Card[]
+  activity_logs  ActivityLog[]
+  invitations    Invitation[]
+
+  // Hierarchy support (Departments)
+  parent_workspace_id String?    @db.Uuid
+  parent              Workspace? @relation("WorkspaceHierarchy", fields: [parent_workspace_id], references: [id])
+  divisions           Workspace[] @relation("WorkspaceHierarchy")
 
   @@index([owner_id])
   @@index([type])
@@ -131,6 +149,8 @@ model Membership {
   user_id      String         @db.Uuid
   workspace_id String         @db.Uuid
   role         MembershipRole
+  title        String?        // e.g., "Frontend Lead", "CEO"
+  permissions  Json?          // Granular capability toggles
   joined_at    DateTime       @default(now())
   left_at      DateTime?
 
@@ -150,10 +170,11 @@ model Team {
   deleted_at   DateTime?
 
   workspace   Workspace       @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
-  membership TeamMembership[]
-  project    Project[]
+  memberships TeamMembership[]
+  projects    Project[]
 
-  @@index([workspace_id])
+
+@@index([workspace_id])
 }
 
 model TeamMembership {
@@ -177,17 +198,18 @@ model Project {
   workspace_id String      @db.Uuid
   team_id      String?     @db.Uuid
   name         String
-  description  String?     @db.Text
+  description  String?      @db.Text
   status       ProjectStatus
-  start_date   DateTime    @db.Date
+  is_public    Boolean      @default(false)
+  start_date   DateTime     @db.Date
   end_date     DateTime    @db.Date
   created_at   DateTime    @default(now())
   deleted_at   DateTime?
 
   workspace           Workspace         @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
   team                Team?             @relation(fields: [team_id], references: [id], onDelete: SetNull)
-  board              Board[]
-  project_membership ProjectMembership[]
+  boards              Board[]
+  project_memberships ProjectMembership[]
 
   @@index([workspace_id])
   @@index([team_id])
@@ -210,17 +232,19 @@ model ProjectMembership {
 }
 
 model Board {
-  id           String    @id @default(uuid()) @db.Uuid
-  project_id   String    @db.Uuid
-  workspace_id String    @db.Uuid
-  name         String
-  created_at   DateTime  @default(now())
-  deleted_at   DateTime?
+  id               String    @id @default(uuid()) @db.Uuid
+  project_id       String    @db.Uuid
+  workspace_id     String    @db.Uuid
+  name             String
+  background_color String?   // Board background color
+  created_at       DateTime  @default(now())
+  deleted_at       DateTime?
 
   project   Project   @relation(fields: [project_id], references: [id], onDelete: Cascade)
   workspace Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
-  list     List[]
-  card     Card[]
+  lists     List[]
+  cards     Card[]
+  config    Json?     // Views preferences (Kanban, List, Calendar)
 
   @@index([project_id])
   @@index([workspace_id])
@@ -235,7 +259,7 @@ model List {
   deleted_at DateTime?
 
   board Board @relation(fields: [board_id], references: [id], onDelete: Cascade)
-  card Card[]
+  cards Card[]
 
   @@index([board_id])
 }
@@ -246,21 +270,79 @@ model Card {
   board_id     String   @db.Uuid
   workspace_id String   @db.Uuid
   title        String
-  description  String   @db.Text
-  status       CardStatus
+  description  String?  @db.Text
+  status       CardStatus   @default(ToDo)
+  priority     CardPriority? @default(MEDIUM)
+  position     Float     @default(0) // For ultra-smooth drag-and-drop
+  metadata     Json?     // Custom fields (Value, Story Points, etc.)
+  labels       Json?     // List of tags/labels
+  color        String?   // Card background color
+  due_date     DateTime?
   assigned_to  String?  @db.Uuid
   created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
   deleted_at   DateTime?
+
+  // Recursive Sub-tasks
+  parent_id String? @db.Uuid
+  parent    Card?   @relation("CardHierarchy", fields: [parent_id], references: [id])
+  subtasks  Card[]  @relation("CardHierarchy")
 
   list      List      @relation(fields: [list_id], references: [id], onDelete: Cascade)
   board     Board     @relation(fields: [board_id], references: [id], onDelete: Cascade)
   workspace Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
-  assignee  User?     @relation("UserAssignedCard", fields: [assigned_to], references: [id], onDelete: SetNull)
+  assignee  User?     @relation("UserAssignedCards", fields: [assigned_to], references: [id], onDelete: SetNull)
+  
+  // Structured Content
+  checklists  ChecklistItem[]
+  comments    Comment[]
+  reactions   Reaction[]
 
   @@index([list_id])
   @@index([board_id])
   @@index([workspace_id])
   @@index([assigned_to])
+  @@index([parent_id])
+}
+
+
+model ChecklistItem {
+  id           String   @id @default(uuid()) @db.Uuid
+  card_id      String   @db.Uuid
+  content      String
+  is_completed Boolean  @default(false)
+  position     Float    @default(0)
+  created_at   DateTime @default(now())
+
+  card Card @relation(fields: [card_id], references: [id], onDelete: Cascade)
+
+  @@index([card_id])
+}
+
+model Comment {
+  id         String   @id @default(uuid()) @db.Uuid
+  card_id    String   @db.Uuid
+  user_id    String   @db.Uuid
+  content    String   @db.Text
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  card Card @relation(fields: [card_id], references: [id], onDelete: Cascade)
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([card_id])
+}
+
+model Reaction {
+  id         String @id @default(uuid()) @db.Uuid
+  card_id    String @db.Uuid
+  user_id    String @db.Uuid
+  emoji      String
+
+  card Card @relation(fields: [card_id], references: [id], onDelete: Cascade)
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([card_id])
 }
 
 model ActivityLog {
@@ -280,4 +362,20 @@ model ActivityLog {
   @@index([workspace_id])
   @@index([target_type])
   @@index([target_id])
+}
+
+model Invitation {
+  id           String         @id @default(uuid()) @db.Uuid
+  workspace_id String         @db.Uuid
+  email        String?        // Optional: Specific email or general link
+  role         MembershipRole
+  title        String?        // Pre-defined title for the new member
+  token        String         @unique
+  expires_at   DateTime
+  created_at   DateTime       @default(now())
+
+  workspace    Workspace      @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+
+  @@index([workspace_id])
+  @@index([token])
 }

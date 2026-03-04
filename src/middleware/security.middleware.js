@@ -6,10 +6,10 @@ export const securityHeaders = (req, res, next) => {
     res.setHeader('X-XSS-Protection', '1; mode=block');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
     res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
-    
+
     // Remove server information
     res.removeHeader('X-Powered-By');
-    
+
     next();
 };
 
@@ -20,23 +20,23 @@ export const corsMiddleware = (req, res, next) => {
         'http://localhost:5173',
         'https://taskflow.vercel.app'
     ];
-    
+
     const origin = req.headers.origin;
-    
+
     if (allowedOrigins.includes(origin)) {
         res.setHeader('Access-Control-Allow-Origin', origin);
     }
-    
+
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
-    
+
     // Handle preflight requests
     if (req.method === 'OPTIONS') {
         return res.status(200).end();
     }
-    
+
     next();
 };
 
@@ -63,7 +63,7 @@ export const contentSecurityPolicy = (req, res, next) => {
         "connect-src 'self'",
         "frame-ancestors 'none'"
     ].join('; ');
-    
+
     res.setHeader('Content-Security-Policy', csp);
     next();
 };
@@ -73,14 +73,14 @@ export const requestSizeLimit = (limit = '10mb') => {
     return (req, res, next) => {
         const contentLength = parseInt(req.get('content-length'));
         const maxSize = parseSize(limit);
-        
+
         if (contentLength && contentLength > maxSize) {
             return res.status(413).json({
                 error: 'Request entity too large',
                 maxSize: limit
             });
         }
-        
+
         next();
     };
 };
@@ -93,10 +93,10 @@ const parseSize = (size) => {
         'mb': 1024 * 1024,
         'gb': 1024 * 1024 * 1024
     };
-    
+
     const match = size.toString().toLowerCase().match(/^(\d+(?:\.\d+)?)\s*([kmg]?b)$/);
     if (!match) return 0;
-    
+
     return parseFloat(match[1]) * (units[match[2]] || 1);
 };
 
